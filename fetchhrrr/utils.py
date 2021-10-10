@@ -9,6 +9,7 @@ from typing import Union
 import urllib.parse
 from datetime import datetime
 
+from osgeo import gdal
 from tqdm import tqdm
 
 from . import HRRR_V1_INIT_TIME, HRRR_V2_INIT_TIME, HRRR_V3_INIT_TIME, HRRR_V4_INIT_TIME
@@ -86,3 +87,11 @@ def fetch_from_url(url: str,
             progress.update(size)
 
     return output_path
+
+
+def gdal_close_dataset(ds: gdal.Dataset) -> None:
+    """ Safely close a GDAL dataset, unlinking internal memory """
+    ds_path = ds.GetDescription()
+    if 'vsimem' in str(list(pathlib.Path(ds_path).parents)[-2]):
+        gdal.Unlink(ds_path)
+    ds = None

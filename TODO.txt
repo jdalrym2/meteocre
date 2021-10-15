@@ -1,0 +1,4 @@
+- Fetch storm damage reports DB
+- Fetch SPC threats and forecasts
+- Fetch GOES-R imagery
+- Fetch weather radar

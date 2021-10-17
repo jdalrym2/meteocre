@@ -85,7 +85,7 @@ class StormEventDetailedReport:
                         float(row['TOR_WIDTH'])
                         if len(row['TOR_WIDTH']) else None,
                         'other_wfo':
-                        row['TOR_F_SCALE'],
+                        row['TOR_OTHER_WFO'],
                         'other_cz': {
                             'state': row['TOR_OTHER_CZ_STATE'],
                             'fips': row['TOR_OTHER_CZ_FIPS'],
@@ -99,7 +99,7 @@ class StormEventDetailedReport:
                          row['BEGIN_LOCATION']),
                         'lat':
                         float(row['BEGIN_LAT']),
-                        'lON':
+                        'lon':
                         float(row['BEGIN_LON'])
                     } if len(row['BEGIN_RANGE']) else None,
                     end_location={
@@ -108,7 +108,7 @@ class StormEventDetailedReport:
                                       row['END_AZIMUTH'], row['END_LOCATION']),
                         'lat':
                         float(row['END_LAT']),
-                        'lON':
+                        'lon':
                         float(row['END_LON'])
                     } if len(row['END_RANGE']) else None,
                     episode_narrative=row['EPISODE_NARRATIVE'],

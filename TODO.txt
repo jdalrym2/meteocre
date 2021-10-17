@@ -9,10 +9,15 @@ Data Mining Project:
   - For years 2015 -> 2020
   - Gen plot of EF2+ tornado reports by geolocation
   - Find specific geo-footprints of interest (Great Plains, Dixie Alley)
+    - Great Plains: (31, -102) -> (43, -94.5)
+    - Dixie Alley: (29, -94.5) -> (36.5, -82)
+    - Midwest: (36.5, -94.5) -> (43, -82)
+
   - For each geo-footprint, find specific times of year depending on climatology
     - Gen plots of reports vs. time of year for both locations
-    - Central plains -> Apr 15 -> June 15
-    - Dixie Alley -> Feb 15 -> Apr 15
+    - Ex: Central plains -> Apr 15 -> June 15
+    - Ex: Dixie Alley -> Feb 15 -> Apr 15
+
   - Find all EF-2 tornado reports within geo-area
     - Download 12Z, 18Z, 00Z HRRR analysis products for that day
     - Determine aggregate parameters to look at for that area
@@ -21,6 +26,7 @@ Data Mining Project:
     - Need for negative samples? Random samples from same area on same day in non-tornado years.
     - Find correlations to tornado reports (params with low variance, bi-modal, tri-model, etc, etc)
       - This is the majority of the project
+
   - Train model based on observations we find most convincing, perhaps as early as 12Z
     - Decision trees?
     - SVM classifier?

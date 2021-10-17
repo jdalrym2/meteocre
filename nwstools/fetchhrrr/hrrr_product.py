@@ -11,7 +11,7 @@ from typing import Union
 import pytz
 from osgeo import gdal, osr
 
-from . import PRODUCT_ID_MAP, get_download_dir
+from . import PRODUCT_ID_MAP, get_logger, get_download_dir
 from .hrrr_inventory import HRRRInventory
 from .utils import fetch_from_url, gdal_close_dataset, get_hrrr_version, validate_product_id, url_exists, is_url
 
@@ -53,6 +53,9 @@ class HRRRProduct():
 
         # Inventory, only initialize if desired
         self._inventory = None
+
+        # Get logger
+        self._logger = get_logger()
 
     @property
     def loc(self) -> Union[str, pathlib.Path]:
@@ -98,7 +101,8 @@ class HRRRProduct():
         """ Fetch the HRRR product from its source."""
         # The ultimate goal of this method is to populate the GDAL dataset from source
         if is_url(self.loc):
-            print('Downloading HRRR product from URL: %s' % self.loc)
+            self._logger.info('Downloading HRRR product from URL: %s' %
+                              self.loc)
 
             # Determine path to download to
             download_dir = get_download_dir()
@@ -113,7 +117,7 @@ class HRRRProduct():
             try:
                 self._loc = fetch_from_url(self.loc, output_path)
             except FileExistsError:
-                print('File already exists! Re-using.')
+                self._logger.info('File already exists! Re-using.')
                 self._loc = output_path
 
         # Sanity check that our path exists
@@ -144,9 +148,10 @@ class HRRRProduct():
             raise NotImplementedError()
 
         run_time = run_time.astimezone(pytz.UTC)
-        return 'https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.%s/conus/hrrr.t%02dz.wrf%sf%02d.grib2' % (
-            run_time.strftime(r'%Y%m%d'), run_time.hour, product_id,
-            forecast_hour)
+        return ('https://storage.googleapis.com/high-resolution-rapid-refresh/'
+                'hrrr.%s/conus/hrrr.t%02dz.wrf%sf%02d.grib2' %
+                (run_time.strftime(r'%Y%m%d'), run_time.hour, product_id,
+                 forecast_hour))
 
     def __str__(self):
         return '%s(Run Time: %s, Forecast Time: %s, Type: %s)' % (
@@ -162,8 +167,7 @@ class HRRRProduct():
             proj: str = 'world',
             bounds: Union[None, list[Union[int,
                                            float]]] = None) -> gdal.Dataset:
-        """ 
-            Return GDAL dataset for a specific set of product indices
+        """ Return GDAL dataset for a specific set of product indices
             - proj = 'map' -> EPSG:3857
             - proj = 'world' -> EPSG:4326
 
@@ -202,8 +206,8 @@ class HRRRProduct():
         # Lambert Conformal Conic Projection
         o_srs = osr.SpatialReference()
         o_srs.ImportFromProj4(
-            '+proj=lcc +units=m +a=6370000.0 +b=6370000.0 +lat_1=38.5 +lat_2=38.5 +lat_0=38.5 +lon_0=-97.5 +nadgrids=@null'
-        )
+            '+proj=lcc +units=m +a=6370000.0 +b=6370000.0 '
+            '+lat_1=38.5 +lat_2=38.5 +lat_0=38.5 +lon_0=-97.5 +nadgrids=@null')
         assert len(o_srs.ExportToWkt())
 
         # Setup destination coordinate system

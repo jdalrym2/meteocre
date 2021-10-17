@@ -5,8 +5,8 @@ from datetime import datetime
 
 import pytz
 
-from fetchhrrr import HRRRProduct
-from fetchhrrr.visualize.nws_standard_colormaps import cm_dpt
+from nwstools.fetchhrrr import HRRRProduct
+from nwstools.fetchhrrr.visualize.nws_standard_colormaps import cm_dpt
 
 if __name__ == '__main__':
 

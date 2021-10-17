@@ -3,30 +3,10 @@
 
 import csv
 import typing
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass
 
-import pytz
-
-
-def to_datetime(yearmonth_str: str,
-                day_str: str,
-                time_str: str,
-                tz_str: typing.Union[None, str] = None):
-    """ Convert CSV fields to datetime object """
-    year = int(yearmonth_str[:4])
-    month = int(yearmonth_str[-2:])
-    day = int(day_str)
-    if len(time_str) == 4:
-        hour, minute = int(time_str[:2]), int(time_str[-2:])
-    elif len(time_str) == 3:
-        hour, minute = int(time_str[:1]), int(time_str[-2:])
-    else:
-        hour, minute = 0, 0
-
-    tz_offset = int(tz_str[-2:])
-    return (datetime(year, month, day, hour, minute) -
-            timedelta(hours=tz_offset)).replace(tzinfo=pytz.UTC)
+from .utils import to_datetime
 
 
 @dataclass

@@ -21,7 +21,7 @@ class HRRRProduct():
 
     __slots__ = [
         '_loc', '_run_time', '_forecast_hour', '_product_id', '_version',
-        '_gdal_ds', '_inventory'
+        '_gdal_ds', '_inventory', '_logger'
     ]
 
     def __init__(self,

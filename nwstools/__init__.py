@@ -18,6 +18,7 @@ _logger.setLevel(
 _logger_handlers = [logging.StreamHandler(sys.stdout)]
 _logger_formatter = logging.Formatter(
     r'%(asctime)-15s %(levelname)s [%(module)s] %(message)s')
+_logger.handlers.clear()
 for h in _logger_handlers:
     h.setFormatter(_logger_formatter)
     _logger.addHandler(h)

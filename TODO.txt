@@ -8,15 +8,23 @@ NWSTools plan:
 Data Mining Project:
   - For years 2015 -> 2020
   - Gen plot of EF2+ tornado reports by geolocation
-  - Find specific geo-footprints of interest (Great Plains, Dixie Alley)
+  - Find specific geo-footprints of interest (Great Plains, Dixie Alley, Midwest)
     - Great Plains: (31, -102) -> (43, -94.5)
     - Dixie Alley: (29, -94.5) -> (36.5, -82)
     - Midwest: (36.5, -94.5) -> (43, -82)
 
   - For each geo-footprint, find specific times of year depending on climatology
     - Gen plots of reports vs. time of year for both locations
-    - Ex: Central plains -> Apr 15 -> June 15
-    - Ex: Dixie Alley -> Feb 15 -> Apr 15
+    - Determined:
+      - Great Plains: Apr 1 -> Jun 1
+      - Dixie Alley: Mar 1 -> May 1
+      - Midwest: Feb 15 -> Apr 15
+
+  - For each region, determine positive and negative sample days
+    - Sample includes: date, center point
+    - Group by region and time (cluster by radius)
+    - Positive
+    - Negative
 
   - Find all EF-2 tornado reports within geo-area
     - Download 12Z, 18Z, 00Z HRRR analysis products for that day

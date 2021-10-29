@@ -1,4 +1,4 @@
-#/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # %% Imports
@@ -139,3 +139,94 @@ fig.update_geos(visible=False,
                 showsubunits=True,
                 subunitcolor="Blue")
 fig.show()
+
+#%% Generate climatology histogram by region
+
+import matplotlib.dates as mdates
+from datetime import datetime
+
+GREAT_PLAINS_REGION = [31, -102, 43, -94.5]
+DIXIE_ALLEY_REGION = [29, -94.5, 36.5, -82]
+MIDWEST_REGION = [36.5, -94.5, 43, -82]
+
+
+def rolling_sum(ar, n):
+    assert n >= 2
+    c_ar = np.concatenate((ar[-(n - 1):], ar))
+    cs = np.cumsum(c_ar)
+    cs_2 = np.pad(cs[:-n], (n, 0))
+    return (cs - cs_2)[(n - 1):]
+
+
+bins = [
+    mdates.date2num(datetime(2000, 1, 1)),
+    mdates.date2num(datetime(2000, 1, 15)),
+    mdates.date2num(datetime(2000, 2, 1)),
+    mdates.date2num(datetime(2000, 2, 15)),
+    mdates.date2num(datetime(2000, 3, 1)),
+    mdates.date2num(datetime(2000, 3, 15)),
+    mdates.date2num(datetime(2000, 4, 1)),
+    mdates.date2num(datetime(2000, 4, 15)),
+    mdates.date2num(datetime(2000, 5, 1)),
+    mdates.date2num(datetime(2000, 5, 15)),
+    mdates.date2num(datetime(2000, 6, 1)),
+    mdates.date2num(datetime(2000, 6, 15)),
+    mdates.date2num(datetime(2000, 7, 1)),
+    mdates.date2num(datetime(2000, 7, 15)),
+    mdates.date2num(datetime(2000, 8, 1)),
+    mdates.date2num(datetime(2000, 8, 15)),
+    mdates.date2num(datetime(2000, 9, 1)),
+    mdates.date2num(datetime(2000, 9, 15)),
+    mdates.date2num(datetime(2000, 10, 1)),
+    mdates.date2num(datetime(2000, 10, 15)),
+    mdates.date2num(datetime(2000, 11, 1)),
+    mdates.date2num(datetime(2000, 11, 15)),
+    mdates.date2num(datetime(2000, 12, 1)),
+    mdates.date2num(datetime(2000, 12, 15)),
+]
+
+fig, ax_o = plt.subplots()
+dates = []
+seasons = []
+print('Seasons:\n')
+for region, region_name in zip(
+    (GREAT_PLAINS_REGION, DIXIE_ALLEY_REGION, MIDWEST_REGION),
+    ('Great Plains', 'Dixie Alley', 'Midwest')):
+    lat_min, lon_min, lat_max, lon_max = region
+    dates.append([])
+    for report in ef2_plus_reports:
+        report_lat = report.begin_location['lat']
+        report_lon = report.begin_location['lon']
+
+        if (lat_min <= report_lat <= lat_max
+                and lon_min <= report_lon <= lon_max):
+            dates[-1].append(report.start_time.replace(year=2000))
+    fig, ax = plt.subplots()
+    vals, _, _ = ax.hist(dates[-1],
+                         bins=bins,
+                         color='darkslateblue',
+                         density=True)
+    ax.set_title('Strong Tornado Reports by Two Week Period: %s' % region_name)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+    n = 4
+    rolling = rolling_sum(vals, n=n)
+    season_start_date = bins[np.argmax(rolling) - (n - 1)]
+    season_end_date = bins[np.argmax(rolling) + 1]
+    seasons.append((season_start_date, season_end_date))
+    print(region_name, mdates.num2date(season_start_date),
+          mdates.num2date(season_end_date))
+    ax.vlines([season_start_date, season_end_date],
+              0,
+              np.max(vals),
+              linestyles='dotted',
+              color='r')
+
+vals, _, _ = ax_o.hist(dates,
+                       bins=bins,
+                       stacked=True,
+                       color=('lightcoral', 'lightgreen', 'cornflowerblue'),
+                       label=('Great Plains', 'Dixie Alley', 'Midwest'))
+ax_o.set_title('Strong Tornado Reports by Two Week Period')
+ax_o.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
+ax_o.legend()
+plt.show()

@@ -100,7 +100,7 @@ class HRRRProduct():
     def fetch(self) -> None:
         """ Fetch the HRRR product from its source."""
         # The ultimate goal of this method is to populate the GDAL dataset from source
-        if is_url(self.loc):
+        if is_url(str(self.loc)):
             self._logger.info('Downloading HRRR product from URL: %s' %
                               self.loc)
 
@@ -132,10 +132,6 @@ class HRRRProduct():
                      product_id: str):
         validate_product_id(product_id)
         loc = cls.build_archive_url(run_time, forecast_hour, product_id)
-        if not url_exists(loc):
-            raise ValueError(
-                'Could not find HRRR product for this time (URL does not exist: %s'
-                % loc)
         return cls(loc, run_time, forecast_hour, product_id)
 
     @staticmethod
@@ -148,10 +144,25 @@ class HRRRProduct():
             raise NotImplementedError()
 
         run_time = run_time.astimezone(pytz.UTC)
-        return ('https://storage.googleapis.com/high-resolution-rapid-refresh/'
-                'hrrr.%s/conus/hrrr.t%02dz.wrf%sf%02d.grib2' %
-                (run_time.strftime(r'%Y%m%d'), run_time.hour, product_id,
-                 forecast_hour))
+        valid_locs = (
+            ('https://storage.googleapis.com/high-resolution-rapid-refresh/'
+             'hrrr.%s/conus/hrrr.t%02dz.wrf%sf%02d.grib2' %
+             (run_time.strftime(r'%Y%m%d'), run_time.hour, product_id,
+              forecast_hour)),
+            ('https://noaa-hrrr-bdp-pds.s3.amazonaws.com/'
+             'hrrr.%s/conus/hrrr.t%02dz.wrf%sf%02d.grib2' %
+             (run_time.strftime(r'%Y%m%d'), run_time.hour, product_id,
+              forecast_hour)),
+        )
+
+        # Search all provided archives for the file
+        for loc in valid_locs:
+            if url_exists(loc):
+                break
+            loc = None
+        if loc is None:
+            raise ValueError('Could not find HRRR product for this time')
+        return loc
 
     def __str__(self):
         return '%s(Run Time: %s, Forecast Time: %s, Type: %s)' % (

@@ -9,6 +9,7 @@ from typing import Union
 import urllib.parse
 from datetime import datetime
 
+import pytz
 from osgeo import gdal
 from tqdm import tqdm
 
@@ -17,6 +18,10 @@ from . import HRRR_V1_INIT_TIME, HRRR_V2_INIT_TIME, HRRR_V3_INIT_TIME, HRRR_V4_I
 
 def get_hrrr_version(run_time: datetime) -> int:
     """ Get the HRRR version corresponding to the run time """
+    # Add UTC timezone if not specified
+    if run_time.tzinfo is None:
+        run_time = run_time.replace(tzinfo=pytz.UTC)
+
     if run_time > HRRR_V4_INIT_TIME:
         return 4
     elif run_time > HRRR_V3_INIT_TIME:

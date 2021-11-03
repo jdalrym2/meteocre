@@ -103,10 +103,12 @@ def gdal_close_dataset(ds: gdal.Dataset) -> None:
     ds = None
 
 
-def map_to_pix(xform: list[float],
-               x_m: Union[float, list[float]],
-               y_m: Union[float, list[float]],
-               round: bool = True):
+def map_to_pix(
+        xform: list[float],
+        x_m: Union[float, list[float]],
+        y_m: Union[float, list[float]],
+        round: bool = True
+) -> Union[tuple[int, int], tuple[np.array, np.array]]:
     """ Convert x/y in map projection (WGS84: lon/lat) to pixel x, y coordinates """
 
     # Input validation, either both float or both lists
@@ -135,7 +137,9 @@ def map_to_pix(xform: list[float],
         return x_p, y_p
 
 
-def pix_to_map(xform: list[float], x_p: float, y_p: float):
+def pix_to_map(
+        xform: list[float], x_p: float,
+        y_p: float) -> Union[tuple[float, float], tuple[np.array, np.array]]:
     """ Convert pixel x, y coordinates to x/y in map projection (WGS84: lon/lat) """
     # Input validation, either both float or both lists
     assert not (isinstance(x_p, float) ^ isinstance(y_p, float))
@@ -158,7 +162,8 @@ def pix_to_map(xform: list[float], x_p: float, y_p: float):
         return x_m, y_m
 
 
-def get_extreme_points(lat: float, lon: float, radius_km: float):
+def get_extreme_points(lat: float, lon: float,
+                       radius_km: float) -> tuple[float, float, float, float]:
     """ Given a lat, lon pair, find bounds that enclose a given radius """
     R = 6367  # radius of Earth, km
     lat_dist = np.degrees(radius_km / R)
@@ -169,7 +174,7 @@ def get_extreme_points(lat: float, lon: float, radius_km: float):
 
 
 def get_px_in_ellipse(center: tuple[int], a: Union[int, float],
-                      b: Union[int, float]):
+                      b: Union[int, float]) -> np.array:
     """ Get the set of pixels that fall within ellipse defined with a, b """
 
     # Start by getting array as if centered at (0, 0)

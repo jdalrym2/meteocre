@@ -3,9 +3,7 @@
 """ Class to allow quick access of HRRR GRIB products """
 
 from __future__ import annotations
-import json
 from typing import Union
-from . import HRRR_VERSION_JSON_MAP
 
 # Type hint HRRRProduct w/o circular dependency
 # See: https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
@@ -13,6 +11,23 @@ from . import HRRR_VERSION_JSON_MAP
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from . import HRRRProduct
+
+# Running mapping of level strings and their layman's descriptions
+level_nice_desc = {
+    '0-SFC': 'surface',
+    '50000-ISBL': '500 mb',
+    '70000-ISBL': '700 mb',
+    '85000-ISBL': '850 mb',
+    '92500-ISBL': '925 mb',
+    '2-HTGL': '2 m above ground',
+    '10-HTGL': '10 m above ground',
+    '50000-100000-ISBL': '500-1000 mb',
+    '0-EATM': 'entire atmosphere (considered as a single layer)',
+    '0-LCY': 'low cloud layer',
+    '0-1000-HTGL': '0-1000 m above ground',
+    '0-6000-HTGL': '0-6000 m above ground',
+    '9000-0-SPDL': '90-0 mb above ground'
+}
 
 
 class HRRRInventory():
@@ -22,16 +37,18 @@ class HRRRInventory():
 
     def __init__(self, hrrr_product: HRRRProduct):
         """ Load corresponding inventory to product """
-        with open(HRRR_VERSION_JSON_MAP[hrrr_product.product_version],
-                  'r') as f:
-            json_dict = json.load(f)
-        for hour_str, hour_dict in json_dict[hrrr_product.product_id].items():
-            hour_list = [int(e.strip()) for e in hour_str.split(',')]
-            if hrrr_product.forecast_hour in hour_list:
-                self._inventory = hour_dict
-                break
-        if self._inventory is None:
-            raise ValueError('Could not find inventory for product!')
+        self._inventory = {}
+        for i in range(1, hrrr_product.gdal_ds.RasterCount):
+            band = hrrr_product.gdal_ds.GetRasterBand(i)
+            param_dict = {}
+            param_dict['idx'] = i
+            param_dict['level'] = band.GetMetadata()['GRIB_SHORT_NAME']
+            param_dict['level_tech_desc'] = band.GetDescription()
+            param_dict['level_desc'] = level_nice_desc.get(
+                param_dict['level'], '')
+            param_dict['param'] = band.GetMetadata()['GRIB_ELEMENT']
+            param_dict['desc'] = band.GetMetadata()['GRIB_COMMENT']
+            self._inventory[i] = param_dict
 
     def get_product_by_index(self, idxs) -> Union[list, dict]:
         """ Get product by index """
@@ -43,7 +60,7 @@ class HRRRInventory():
         product_list = []
         for idx in idxs:
             try:
-                product_list.append(self._inventory[str(idx)])
+                product_list.append(self._inventory[idx])
             except KeyError:
                 raise ValueError('No product exists for index %s' % idx)
 
@@ -53,30 +70,19 @@ class HRRRInventory():
         else:
             return product_list[0]
 
-    def get_product_by_param(self, params) -> Union[list, dict]:
+    def get_product_by_param(self, params, levels=[]) -> Union[list, dict]:
         """ Get product by param code """
         if not isinstance(params, (list, tuple, set)):
             params = [params]
 
         # TODO: params aren't unique based on level!
         # First, search for params all at once
-        # we will get an out of order list
-        param_list_unsorted = []
+        param_list = []
         params_search = list(params).copy()
         for d in self._inventory.values():
             if d['param'] in params_search:
-                param_list_unsorted.append(d)
-                del params_search[params_search.index(d['param'])]
-
-        # Now, sort the list based on the params we've been given
-        params_unsorted = [e['param'] for e in param_list_unsorted]
-        param_list = []
-        for param in params:
-            param_list.append(
-                param_list_unsorted[params_unsorted.index(param)])
+                if not len(levels) or d['level'] in levels:
+                    param_list.append(d)
 
         # Return results
-        if len(params) > 1:
-            return param_list
-        else:
-            return param_list[0]
+        return param_list

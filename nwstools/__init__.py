@@ -5,6 +5,8 @@ import sys
 import json
 import logging
 import pathlib
+import numpy as np
+from osgeo import gdal
 
 NWSTOOLS_CONFIG_LOC = pathlib.Path(pathlib.Path.home(), '.nwstools')
 
@@ -25,7 +27,26 @@ for h in _logger_handlers:
 
 
 def get_logger():
+    """ Fetch the nwstools logger """
     return _logger
+
+
+# Map of GDAL datatypes to numpy datatypes
+GDAL_TO_NUMPY_MAP = {
+    gdal.GDT_Byte: np.uint8,
+    gdal.GDT_UInt16: np.uint16,
+    gdal.GDT_UInt32: np.uint32,
+    gdal.GDT_Int16: np.int16,
+    gdal.GDT_Int32: np.int32,
+    gdal.GDT_Float32: np.float32,
+    gdal.GDT_Float64: np.float64,
+    gdal.GDT_CInt16: np.complex128,
+    gdal.GDT_CInt32: np.complex128,
+    gdal.GDT_CFloat32: np.complex128,
+    gdal.GDT_CFloat64: np.complex128,
+    gdal.GDT_Unknown: np.float64,
+}
+NUMPY_TO_GDAL_MAP = dict([(v, k) for k, v in GDAL_TO_NUMPY_MAP.items()])
 
 
 # Get download directory for nwstools files

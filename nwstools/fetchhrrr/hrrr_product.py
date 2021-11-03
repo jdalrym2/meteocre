@@ -7,13 +7,17 @@ import pathlib
 import urllib.parse
 from datetime import datetime, timedelta
 from typing import Union
+import warnings
 
 import pytz
+import numpy as np
 from osgeo import gdal, osr
 
+from .. import GDAL_TO_NUMPY_MAP
 from . import PRODUCT_ID_MAP, get_logger, get_download_dir
 from .hrrr_inventory import HRRRInventory
 from .utils import fetch_from_url, gdal_close_dataset, get_hrrr_version, validate_product_id, url_exists, is_url
+from .utils import map_to_pix, get_extreme_points, get_px_in_ellipse
 
 
 class HRRRProduct():
@@ -306,3 +310,91 @@ class HRRRProduct():
         # Close generated dataset and free in-RAM memory
         gdal_close_dataset(in_ds)
         out_ds = None
+
+    def query_for_pts(self, product_idx_list, pt_ar):
+        """ Query the HRRR product raster for a set of points """
+        # Get bounds based on pt array
+        pt_ar = np.array(pt_ar)
+        lat_max, lat_min = np.max(pt_ar[:, 0]) + 0.1, np.min(pt_ar[:, 0]) - 0.1
+        lon_max, lon_min = np.max(pt_ar[:, 1]) + 0.1, np.min(pt_ar[:, 1]) - 0.1
+        bounds = lon_min, lat_min, lon_max, lat_max
+
+        # Fetch the dataset for these points
+        ds = self.get_ds_for_product_idx(product_idx_list,
+                                         proj='world',
+                                         bounds=bounds)
+
+        # Get raster points for ds
+        x, y = map_to_pix(ds.GetGeoTransform(), pt_ar[:, 1], pt_ar[:, 0])
+
+        # Bounds checking and trimming
+        v = (x >= 0) & (y >= 0) & (x < ds.RasterXSize) & (y < ds.RasterYSize)
+        if len(v) < pt_ar.shape[0]:
+            warnings.warn(
+                'query_for_pts: some points provided were out of bounds!',
+                RuntimeWarning)
+        valid_x, valid_y = x[v], y[v]
+
+        # Prepare output list
+        output = np.zeros((pt_ar.shape[0], ds.RasterCount),
+                          dtype=GDAL_TO_NUMPY_MAP.get(
+                              ds.GetRasterBand(1).DataType, np.float32))
+        for idx in range(ds.RasterCount):
+            mem_band = ds.GetRasterBand(idx + 1)
+            output[v, idx] = mem_band.ReadAsArray()[valid_y, valid_x]
+            mem_band = None
+
+        # Safely close the dataset
+        gdal_close_dataset(ds)
+
+        # Return
+        return output
+
+    def query_for_radius(self, product_idx_list, lat, lon, radius_km):
+        """ Query the HRRR product raster for a set of points """
+        # Get bounds based on pt array
+        bounds = get_extreme_points(lat, lon, radius_km)
+
+        # Fetch the dataset for these points
+        ds = self.get_ds_for_product_idx(product_idx_list,
+                                         proj='world',
+                                         bounds=bounds)
+
+        # Find points that are contained in our radius, now in pixel space
+        _, _, lon_max, lat_max = bounds
+        test_pts = np.array([
+            (lat, lon),
+            (lat_max, lon_max),
+        ])
+        test_pts_x, test_pts_y = map_to_pix(ds.GetGeoTransform(),
+                                            test_pts[:, 1], test_pts[:, 0])
+        c_x, c_y = test_pts_x[0], test_pts_y[0]
+        ax_x = test_pts_x[1] - test_pts_x[0]
+        ax_y = test_pts_y[1] - test_pts_y[0]
+
+        # Use this to get all the pixel values that encompass this radius
+        pt_ar = get_px_in_ellipse((c_x, c_y), ax_x, ax_y)
+        x, y = pt_ar[:, 0], pt_ar[:, 1]
+
+        # Bounds checking and trimming
+        v = (x >= 0) & (y >= 0) & (x < ds.RasterXSize) & (y < ds.RasterYSize)
+        if len(v) < pt_ar.shape[0]:
+            warnings.warn(
+                'query_for_pts: some points provided were out of bounds!',
+                RuntimeWarning)
+        valid_x, valid_y = x[v], y[v]
+
+        # Prepare output list
+        output = np.zeros((pt_ar.shape[0], ds.RasterCount),
+                          dtype=GDAL_TO_NUMPY_MAP.get(
+                              ds.GetRasterBand(1).DataType, np.float32))
+        for idx in range(ds.RasterCount):
+            mem_band = ds.GetRasterBand(idx + 1)
+            output[v, idx] = mem_band.ReadAsArray()[valid_y, valid_x]
+            mem_band = None
+
+        # Safely close the dataset
+        gdal_close_dataset(ds)
+
+        # Return
+        return output

@@ -6,7 +6,7 @@ import uuid
 import pathlib
 import urllib.parse
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Any, Optional, Tuple, Union
 import warnings
 
 import pytz
@@ -114,18 +114,18 @@ class HRRRProduct():
                 download_dir,
                 '%s' % self.run_time.astimezone(pytz.UTC).strftime('%Y-%m-%d'))
             date_dir.mkdir(parents=False, exist_ok=True)
-            url_parse = urllib.parse.urlparse(self.loc)
+            url_parse = urllib.parse.urlparse(str(self.loc))
             file_name = pathlib.PosixPath(url_parse.path).name
             output_path = pathlib.Path(date_dir, file_name)
 
             try:
-                self._loc = fetch_from_url(self.loc, output_path)
+                self._loc = fetch_from_url(str(self.loc), output_path)
             except FileExistsError:
                 self._logger.info('File already exists! Re-using.')
                 self._loc = output_path
 
         # Sanity check that our path exists
-        if not self.loc.exists():
+        if not pathlib.Path(self.loc).exists():
             raise FileNotFoundError('Input path does not exist!')
 
         # Populate GDAL dataset
@@ -160,10 +160,11 @@ class HRRRProduct():
         )
 
         # Search all provided archives for the file
-        for loc in valid_locs:
-            if url_exists(loc):
+        loc = None
+        for _loc in valid_locs:
+            if url_exists(_loc):
+                loc = _loc
                 break
-            loc = None
         if loc is None:
             raise ValueError('Could not find HRRR product for this time')
         return loc
@@ -177,11 +178,11 @@ class HRRRProduct():
         return self.__str__()
 
     def get_ds_for_product_idx(
-            self,
-            product_idx_list: list[int],
-            proj: str = 'world',
-            bounds: Union[None, list[Union[int,
-                                           float]]] = None) -> gdal.Dataset:
+        self,
+        product_idx_list: list[int],
+        proj: str = 'world',
+        bounds: Optional[Tuple[float, float, float, float]] = None
+    ) -> gdal.Dataset:
         """ Return GDAL dataset for a specific set of product indices
             - proj = 'map' -> EPSG:3857
             - proj = 'world' -> EPSG:4326
@@ -216,6 +217,8 @@ class HRRRProduct():
         # Parse bounds
         if bounds is not None:
             lon_min, lat_min, lon_max, lat_max = bounds
+        else:
+            lon_min = lat_min = lon_max = lat_max = None
 
         # Setup src coordinate system
         # Lambert Conformal Conic Projection
@@ -260,13 +263,12 @@ class HRRRProduct():
 
         # Convert to destination coordinate system
         dst_mem_path = '/vsimem/%s.tif' % str(uuid.uuid4())
-        warp_options = dict(format='GTiff',
-                            dstSRS=dst_srs.ExportToProj4(),
-                            srcNodata='nan',
-                            dstNodata='nan')
+        warp_options = dict[str, Any](format='GTiff',
+                                      dstSRS=dst_srs.ExportToProj4(),
+                                      srcNodata='nan',
+                                      dstNodata='nan')
         if bounds is not None:
-            warp_options.update(
-                dict(outputBounds=[lon_min, lat_min, lon_max, lat_max]))
+            warp_options['outputBounds'] = [lon_min, lat_min, lon_max, lat_max]
         dst_ds = gdal.Warp(dst_mem_path, nat_ds, **warp_options)
 
         # Unsuppress warnings
@@ -284,7 +286,8 @@ class HRRRProduct():
             output_path: Union[str, pathlib.Path],
             product_idx_list: list[int],
             proj: str = 'world',
-            bounds: Union[None, list[Union[int, float]]] = None) -> None:
+            bounds: Optional[Tuple[float, float, float,
+                                   float]] = None) -> None:
         """ Export product as a GeoTiff """
 
         # Load a GDAL dataset in the correct projection and with the desired

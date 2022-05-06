@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import gzip
-import typing
 import shutil
+import pathlib
+from typing import Union, Optional
 from io import BytesIO
 from ftplib import FTP
 from datetime import datetime, timedelta
@@ -13,8 +14,8 @@ import pytz
 
 def to_datetime(yearmonth_str: str,
                 day_str: str,
-                time_str: int = "",
-                tz_str: typing.Union[None, str] = None) -> datetime:
+                time_str: str = "",
+                tz_str: Optional[str] = None) -> datetime:
     """ Convert CSV fields to datetime object """
     year = int(yearmonth_str[:4])
     month = int(yearmonth_str[-2:])
@@ -35,8 +36,9 @@ def to_datetime(yearmonth_str: str,
             timedelta(hours=tz_offset)).replace(tzinfo=pytz.UTC)
 
 
-def ftp_download_and_extract_gzip(ftp: FTP, ftp_name: str,
-                                  output_path: typing.BinaryIO) -> None:
+def ftp_download_and_extract_gzip(
+        ftp: FTP, ftp_name: str, output_path: Union[str,
+                                                    pathlib.Path]) -> None:
     """ Download and extract gzip'd file at an FTP location """
     fio = BytesIO()
     ftp.retrbinary('RETR %s' % ftp_name, fio.write)

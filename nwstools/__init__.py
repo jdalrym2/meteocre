@@ -5,6 +5,7 @@ import sys
 import json
 import logging
 import pathlib
+from typing import Optional
 import numpy as np
 from osgeo import gdal
 
@@ -93,6 +94,7 @@ def get_download_dir():
 
     # Otherwise, or if the previous step failed, query the user for a directory!
     got_valid_dir = False
+    response_path = None  # type: Optional[pathlib.Path]
     while not got_valid_dir:
         response = input('Please enter path to download directory: ')
         response_path = pathlib.Path(response).expanduser().resolve()
@@ -107,6 +109,8 @@ def get_download_dir():
                           str(response_path))
 
     # We entered a valid path!
+    if not isinstance(response_path, pathlib.Path):
+        raise RuntimeError('Response path is None!')
     _cur_download_dir = response_path
 
     # Ask the user if we'd like to save this config for later

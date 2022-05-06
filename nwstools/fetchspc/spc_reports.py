@@ -97,7 +97,7 @@ class SPCReportFactory():
         elif header == cls.HAIL_HEADER:
             return SPCHailReport(date, *line)
         else:
-            return ValueError('Unrecognized header: %s' % repr(header))
+            raise ValueError('Unrecognized header: %s' % repr(header))
 
 
 class SPCReportsProduct():

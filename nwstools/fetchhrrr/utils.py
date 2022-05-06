@@ -100,22 +100,20 @@ def gdal_close_dataset(ds: gdal.Dataset) -> None:
     ds_path = ds.GetDescription()
     if 'vsimem' in str(list(pathlib.Path(ds_path).parents)[-2]):
         gdal.Unlink(ds_path)
-    ds = None
+    ds = None  # type: ignore
 
 
-def map_to_pix(
-        xform: list[float],
-        x_m: Union[float, list[float]],
-        y_m: Union[float, list[float]],
-        round: bool = True
-) -> Union[tuple[int, int], tuple[np.array, np.array]]:
+def map_to_pix(xform: list[float],
+               x_m: Union[float, list[float], np.ndarray],
+               y_m: Union[float, list[float], np.ndarray],
+               round: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """ Convert x/y in map projection (WGS84: lon/lat) to pixel x, y coordinates """
 
     # Input validation, either both float or both lists
     assert not (isinstance(x_m, float) ^ isinstance(y_m, float))
-    is_float = isinstance(x_m, float)
-    if is_float:
+    if isinstance(x_m, float):
         x_m = [x_m]
+    if isinstance(y_m, float):
         y_m = [y_m]
     x_m, y_m = np.array(x_m), np.array(y_m)
     assert x_m.ndim == y_m.ndim == 1
@@ -131,21 +129,19 @@ def map_to_pix(
         x_p, y_p = np.round(x_p).astype(int), np.round(y_p).astype(int)
 
     # Return
-    if is_float:
-        return x_p[0], y_p[0]
-    else:
-        return x_p, y_p
+    return x_p, y_p
 
 
 def pix_to_map(
-        xform: list[float], x_p: float,
-        y_p: float) -> Union[tuple[float, float], tuple[np.array, np.array]]:
+    xform: list[float], x_p: Union[float, list[float], np.ndarray],
+    y_p: Union[float, list[float],
+               np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """ Convert pixel x, y coordinates to x/y in map projection (WGS84: lon/lat) """
     # Input validation, either both float or both lists
     assert not (isinstance(x_p, float) ^ isinstance(y_p, float))
-    is_float = isinstance(x_p, float)
-    if is_float:
+    if isinstance(x_p, float):
         x_p = [x_p]
+    if isinstance(y_p, float):
         y_p = [y_p]
     x_p, y_p = np.array(x_p), np.array(y_p)
     assert x_p.ndim == y_p.ndim == 1
@@ -156,10 +152,7 @@ def pix_to_map(
     y_m = xform[3] + xform[4] * x_p + xform[5] * y_p
 
     # Return
-    if is_float:
-        return x_m[0], y_m[0]
-    else:
-        return x_m, y_m
+    return x_m, y_m
 
 
 def get_extreme_points(lat: float, lon: float,
@@ -173,8 +166,8 @@ def get_extreme_points(lat: float, lon: float,
     return lon_min, lat_min, lon_max, lat_max
 
 
-def get_px_in_ellipse(center: tuple[int], a: Union[int, float],
-                      b: Union[int, float]) -> np.array:
+def get_px_in_ellipse(center: tuple[int, int], a: float,
+                      b: float) -> np.ndarray:
     """ Get the set of pixels that fall within ellipse defined with a, b """
 
     # Start by getting array as if centered at (0, 0)

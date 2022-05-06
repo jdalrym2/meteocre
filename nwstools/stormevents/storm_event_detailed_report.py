@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import csv
-import typing
+import pathlib
+from typing import Union, Optional
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -25,16 +26,16 @@ class StormEventDetailedReport:
     deaths: dict
     damage: dict
     source: str
-    magnitude: typing.Union[None, dict]
+    magnitude: Union[None, dict]
     flood_cause: str
-    tornado: typing.Union[None, dict]
-    begin_location: dict
-    end_location: dict
+    tornado: Union[None, dict]
+    begin_location: Optional[dict]
+    end_location: Optional[dict]
     episode_narrative: str
     event_narrative: str
 
     @classmethod
-    def from_csv(cls, csv_file: typing.TextIO):
+    def from_csv(cls, csv_file: Union[str, pathlib.Path]):
         """ Load a set of detailed reports from a CSV file """
         cls_list = []
         with open(csv_file, 'r') as f:

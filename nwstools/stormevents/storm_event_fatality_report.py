@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import csv
-import typing
+import pathlib
+from typing import Optional, Union
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -16,12 +17,12 @@ class StormEventFatalityReport:
     fatality_id: int
     fatality_time: datetime
     fatality_type: str
-    fatality_age: typing.Union[None, int]
-    fatality_sex: typing.Union[None, str]
+    fatality_age: Optional[int]
+    fatality_sex: Optional[str]
     fatality_location: str
 
     @classmethod
-    def from_csv(cls, csv_file: typing.TextIO):
+    def from_csv(cls, csv_file: Union[str, pathlib.Path]):
         """ Load a set of fatality reports from a CSV file """
         cls_list = []
         with open(csv_file, 'r') as f:

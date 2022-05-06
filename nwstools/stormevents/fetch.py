@@ -6,7 +6,7 @@ import shutil
 import pathlib
 from io import BytesIO
 from ftplib import FTP
-from typing import Union, Sequence, BinaryIO
+from typing import Optional, Union, Sequence
 
 from . import get_logger, get_download_dir
 
@@ -18,8 +18,9 @@ def _get_filename_for_product_type(year: int, product_type: str):
     return 'stormevents_%s_%d.csv' % (product_type, year)
 
 
-def _ftp_download_and_extract_gzip(ftp: FTP, ftp_name: str,
-                                   output_path: BinaryIO) -> None:
+def _ftp_download_and_extract_gzip(
+        ftp: FTP, ftp_name: str, output_path: Union[str,
+                                                    pathlib.Path]) -> None:
     """ Simultaneously download and unzip a Gzip archive from an FTP target """
     fio = BytesIO()
     ftp.retrbinary('RETR %s' % ftp_name, fio.write)
@@ -28,10 +29,10 @@ def _ftp_download_and_extract_gzip(ftp: FTP, ftp_name: str,
         shutil.copyfileobj(gz, fout)
 
 
-def fetch_from_storm_events_archive(query_year: int,
-                                    products_to_load: Union[
-                                        str, Sequence[str]] = 'all',
-                                    load: bool = True) -> list:
+def fetch_from_storm_events_archive(
+        query_year: int,
+        products_to_load: Union[str, Sequence[str]] = 'all',
+        load: bool = True) -> Optional[dict[str, list]]:
     """ Fetch a set of products for a given year from the NCEI archive,
         or load them up if they've already been fetched """
 

@@ -16,7 +16,7 @@ if __name__ == '__main__':
     logger = nwstools.get_logger()
 
     # Add file handler to nwstools logger
-    log_location = pathlib.Path('./hrrr_download.log').resolve()
+    log_location = pathlib.Path('./hrrr_download_holdout.log').resolve()
     if log_location.exists():
         log_location.unlink()
     h = logging.FileHandler(str(log_location))
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     logger.addHandler(h)
 
     # Load all samples
-    with open('./data/all_samples.pkl', 'rb') as f:
+    with open('./data/all_samples_holdout.pkl', 'rb') as f:
         all_samples = pickle.load(f)
 
     # Loop through all samples and download
@@ -58,7 +58,7 @@ if __name__ == '__main__':
             except Exception as e:
                 logger.error('Exception raised! Skipping.')
                 logger.exception(e)
-                morning_product = None
+                midday_product = None
 
             try:
                 evening_product = fetchhrrr.HRRRProduct.from_archive(
@@ -66,7 +66,7 @@ if __name__ == '__main__':
             except Exception as e:
                 logger.error('Exception raised! Skipping.')
                 logger.exception(e)
-                morning_product = None
+                evening_product = None
 
             for product in (morning_product, midday_product, evening_product):
                 if product is None:

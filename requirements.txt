@@ -1,0 +1,7 @@
+python>=3.9
+pytz
+gdal>=3.0.0
+metpy
+numpy
+scipy
+tqdm

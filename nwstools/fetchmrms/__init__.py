@@ -15,3 +15,6 @@ def get_download_dir():
     d = pathlib.Path(_get_download_dir(), 'mrms')
     d.mkdir(parents=False, exist_ok=True)
     return d
+
+
+from .mrms_product import MRMSProduct, MRMSRotationProduct, MRMSReflectivityProduct, MRMSSevereHailIndexProduct, MRMSMaximumExpectedSizeOfHailProduct

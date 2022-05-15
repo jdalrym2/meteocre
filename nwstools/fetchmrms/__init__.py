@@ -18,3 +18,4 @@ def get_download_dir():
 
 
 from .mrms_product import MRMSProduct, MRMSRotationProduct, MRMSReflectivityProduct, MRMSSevereHailIndexProduct, MRMSMaximumExpectedSizeOfHailProduct
+from . import probsevere

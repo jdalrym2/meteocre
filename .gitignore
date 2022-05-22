@@ -1,5 +1,7 @@
 .vscode
 *\.pyc
 /data
+/build
 *\.log*
 .style.yapf
+*.egg-info/

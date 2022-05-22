@@ -12,7 +12,7 @@ def get_logger():
 
 
 def get_download_dir():
-    d = pathlib.Path(_get_download_dir(), 'mrms')
+    d = pathlib.Path(_get_download_dir(), 'wwa')
     d.mkdir(parents=False, exist_ok=True)
     return d
 

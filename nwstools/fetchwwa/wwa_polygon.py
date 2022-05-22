@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional
 from osgeo import ogr
 import pytz
 
+from .phenom import VTEC_PHENOMENA, VTEC_SIGNIFICANCE
+
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class WWAPolygon:
@@ -111,6 +113,38 @@ class WWAPolygon:
             str: Polygon WKT string
         """
         return self.ogr_poly.ExportToWkt()
+
+    @property
+    def phenom_text(self) -> str:
+        """
+        Return human-readable text for this polygon's phenomenon.
+
+        Returns:
+            str: Phenomenon (human-readable)
+        """
+        return VTEC_PHENOMENA.get(self.phenom, 'Unknown')
+
+    @property
+    def significance_text(self) -> str:
+        """
+        Return human-readable text for this polygon's signifiance.
+
+        Returns:
+            str: Significance (human-readable)
+        """
+        return VTEC_SIGNIFICANCE.get(self.significance, '')
+
+    @property
+    def is_thunderstorm_related(self) -> bool:
+        """
+        Returns whether or not this is a 'thunderstorm' related polygon.
+
+        i.e. a Tornado Warning, Severe Thunderstorm Warning, or Flash Flood Warning
+
+        Returns:
+            bool: True if this polygon is related to an ongoing storm.
+        """
+        return self.significance == 'W' and self.phenom in ('TO', 'SV', 'FF')
 
     @staticmethod
     def _parse_dt_str(dt_str: str) -> datetime:

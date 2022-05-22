@@ -44,3 +44,4 @@ def get_download_dir():
 
 
 from .hrrr_product import HRRRProduct
+from . import mesoanalysis

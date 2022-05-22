@@ -1,4 +1,5 @@
 python>=3.9
+jupyter
 pytz
 gdal>=3.0.0
 metpy

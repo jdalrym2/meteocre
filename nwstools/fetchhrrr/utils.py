@@ -38,7 +38,7 @@ def get_hrrr_version(run_time: datetime) -> int:
 
 def validate_product_id(product_id: str) -> None:
     """ Validate the product id is a valid one for HRRR, otherwise raise an expection """
-    if not re.match('/(prs)|(nat)|(sfc)|(subh)$', product_id):
+    if not re.match('(prs|nat|sfc|subh)', product_id):
         raise ValueError(
             'Invalid product ID: %s! Must be one of \'prs\', \'nat\', \'sfc\', \'subh\'.'
             % str(product_id))
@@ -100,7 +100,7 @@ def gdal_close_dataset(ds: gdal.Dataset) -> None:
     ds_path = ds.GetDescription()
     if 'vsimem' in str(list(pathlib.Path(ds_path).parents)[-2]):
         gdal.Unlink(ds_path)
-    ds = None  # type: ignore
+    ds = None     # type: ignore
 
 
 def map_to_pix(xform: list[float],
@@ -158,7 +158,7 @@ def pix_to_map(
 def get_extreme_points(lat: float, lon: float,
                        radius_km: float) -> tuple[float, float, float, float]:
     """ Given a lat, lon pair, find bounds that enclose a given radius """
-    R = 6367  # radius of Earth, km
+    R = 6367     # radius of Earth, km
     lat_dist = np.degrees(radius_km / R)
     lon_dist = lat_dist / np.cos(np.radians(lat))
     lat_max, lat_min = lat + lat_dist, lat - lat_dist

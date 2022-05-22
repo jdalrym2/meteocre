@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 """ Class to fetch, interpret, and parse HRRR GRIB2 products """
 
+from __future__ import annotations
+
+import re
 import uuid
 import pathlib
 import urllib.parse
 from datetime import datetime, timedelta
-from typing import Any, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 import warnings
 
 import pytz
@@ -27,6 +30,10 @@ class HRRRProduct():
         '_loc', '_run_time', '_forecast_hour', '_product_id', '_version',
         '_gdal_ds', '_inventory', '_logger'
     ]
+
+    FILE_PATTERN = re.compile(
+        r'hrrr\.t([0-1][0-9]|2[0-3])z\.wrf(prs|nat|sfc|subh)f([0-3][0-9]|4[0-8]).grib2'
+    )
 
     def __init__(self,
                  loc: Union[str, pathlib.Path],
@@ -133,10 +140,84 @@ class HRRRProduct():
 
     @classmethod
     def from_archive(cls, run_time: datetime, forecast_hour: int,
-                     product_id: str):
+                     product_id: str) -> HRRRProduct:
         validate_product_id(product_id)
         loc = cls.build_archive_url(run_time, forecast_hour, product_id)
         return cls(loc, run_time, forecast_hour, product_id)
+
+    @classmethod
+    def from_grib2(cls, file_path: Union[str, pathlib.Path]) -> HRRRProduct:
+        """
+        Load a HRRR product from a GRIB2 file.
+
+        Args:
+            file_path (Union[str, pathlib.Path]): Path to GRIB2 file.
+
+        Raises:
+            FileNotFoundError: If the provided file path does not exist.
+            ValueError: If the file naming convention is not recognized.
+            ValueError: If the GRIB metadata reference time could not be read.
+            ValueError: If the GRIB metadata valid time could not be read.
+
+        Returns:
+            HRRRProduct: HRRR product object from file
+        """
+        # Get module logger
+        logger = get_logger()
+
+        # Sanity check file path
+        file_path = pathlib.Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError('File not found: %s' % str(file_path))
+
+        # Validate filename
+        m = cls.FILE_PATTERN.match(file_path.name)
+        if m is None:
+            raise ValueError(
+                'Unsupported or unknown file naming convention. See %s.FILE_PATTERN. %s'
+                % (cls.__name__, file_path.name))
+
+        # Get data from filename
+        utc_hour, product_id, forecast_hour = int(m.group(1)), m.group(2), int(
+            m.group(3))
+
+        # Load GDAL dataset from file
+        gdal_ds = gdal.Open(str(file_path))
+
+        # Extract necessary metadata
+        metadata = gdal_ds.GetRasterBand(1).GetMetadata()
+        try:
+            grib_ref_timestamp = int(
+                metadata['GRIB_REF_TIME'].lstrip().split(' ')[0])
+            grib_ref_time = datetime.fromtimestamp(
+                grib_ref_timestamp).astimezone(pytz.UTC)
+        except Exception:
+            raise ValueError('Could not get GRIB reference time!')
+        try:
+            grib_valid_timestamp = int(
+                metadata['GRIB_REF_TIME'].lstrip().split(' ')[0])
+            grib_valid_time = datetime.fromtimestamp(
+                grib_valid_timestamp).astimezone(pytz.UTC)
+        except Exception:
+            raise ValueError('Could not get GRIB valid time!')
+
+        # Sanity check UTC hour and forecast error, throw warnings if mismatch
+        if grib_ref_time.hour != utc_hour:
+            logger.warning(
+                'GRIB2 reference time does not match UTC hour from filename! %s vs. %s'
+                % (grib_ref_time.hour, utc_hour))
+        expected_fh = (grib_valid_time - grib_ref_time).total_seconds() / 3600
+        if expected_fh != forecast_hour:
+            logger.warning(
+                'Expected forcast hour based on GRIB metadata does not match filename! %s vs. %s'
+                % (expected_fh, forecast_hour))
+
+        # Return class instance!
+        return cls(loc=file_path,
+                   run_time=grib_ref_time,
+                   forecast_hour=forecast_hour,
+                   product_id=product_id,
+                   gdal_ds=gdal_ds)
 
     @staticmethod
     def build_archive_url(run_time: datetime, forecast_hour: int,
@@ -248,25 +329,27 @@ class HRRRProduct():
             raise ValueError('Projection must be \'world\' or \'map\'!')
         assert len(dst_srs.ExportToWkt())
 
-        # Convert GRIB2 product into a GeoTIFF with native coordinate system
-        nat_mem_path = '/vsimem/%s.tif' % str(uuid.uuid4())
+        # Extract bands from gdal dataset
+        nat_mem_path = '/vsimem/%s' % str(uuid.uuid4())
         nat_ds = gdal.Translate(nat_mem_path,
                                 self.gdal_ds,
-                                format='GTiff',
+                                format='MEM',
                                 bandList=product_idx_list,
                                 outputSRS=o_srs.ExportToProj4(),
-                                noData='nan')
+                                noData='nan',
+                                callback=gdal.TermProgress)
 
         # Suppress warnings
         h = gdal.PopErrorHandler()
         gdal.PushErrorHandler('CPLQuietErrorHandler')
 
         # Convert to destination coordinate system
-        dst_mem_path = '/vsimem/%s.tif' % str(uuid.uuid4())
-        warp_options = dict[str, Any](format='GTiff',
+        dst_mem_path = '/vsimem/%s' % str(uuid.uuid4())
+        warp_options = dict[str, Any](format='MEM',
                                       dstSRS=dst_srs.ExportToProj4(),
                                       srcNodata='nan',
-                                      dstNodata='nan')
+                                      dstNodata='nan',
+                                      callback=gdal.TermProgress)
         if bounds is not None:
             warp_options['outputBounds'] = [lon_min, lat_min, lon_max, lat_max]
         dst_ds = gdal.Warp(dst_mem_path, nat_ds, **warp_options)
@@ -281,10 +364,47 @@ class HRRRProduct():
 
         return dst_ds
 
+    def to_numpy_ar(
+        self,
+        product_idx_list: List[int],
+        proj: str = 'world',
+        bounds: Optional[Tuple[float, float, float,
+                               float]] = None) -> np.ndarray:
+        """
+        For a set of product indices, return a numpy array of the values.
+
+        Args:
+            product_idx_list (List[int]): List of product indicies. Use HRRRProduct.inventory to search if necessary.
+            proj (str, optional): Map projection to use: 'map' or 'world'. Defaults to 'world'.
+            bounds (Optional[Tuple[float, float, float, float]], optional): Optional bounding box (lon_min, lat_min, lon_max, lat_max).
+                Defaults to None.
+
+        Returns:
+            np.ndarray: Output 3D numpy array for the set of products.
+        """
+        # Load a GDAL dataset in the correct projection and with the desired
+        # product idxs
+        ds = self.get_ds_for_product_idx(product_idx_list, proj, bounds)
+        w, h, n_channels = ds.RasterXSize, ds.RasterYSize, ds.RasterCount
+        dt = ds.GetRasterBand(1).DataType
+
+        # Prepare output array
+        output = np.empty((h, w, n_channels),
+                          dtype=GDAL_TO_NUMPY_MAP.get(dt, np.float32))
+
+        # Fill output array
+        for idx in range(ds.RasterCount):
+            mem_band = ds.GetRasterBand(idx + 1)
+            output[:, :, idx] = mem_band.ReadAsArray()
+            mem_band = None
+
+        # Profit
+        return output
+
     def to_geotiff(
             self,
             output_path: Union[str, pathlib.Path],
-            product_idx_list: list[int],
+            product_idx_list: List[int],
             proj: str = 'world',
             bounds: Optional[Tuple[float, float, float,
                                    float]] = None) -> None:

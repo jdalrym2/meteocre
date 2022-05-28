@@ -19,8 +19,9 @@ from osgeo import gdal, osr
 from .. import GDAL_TO_NUMPY_MAP
 from . import PRODUCT_ID_MAP, get_logger, get_download_dir
 from .hrrr_inventory import HRRRInventory
-from .utils import fetch_from_url, gdal_close_dataset, get_hrrr_version, validate_product_id, url_exists, is_url
-from .utils import map_to_pix, get_extreme_points, get_px_in_ellipse
+from .utils import get_hrrr_version, validate_product_id
+from ..utils import fetch_from_url, gdal_close_dataset, url_exists, is_url
+from ..utils import map_to_pix, get_extreme_points, get_px_in_ellipse
 
 
 class HRRRProduct():
@@ -185,7 +186,9 @@ class HRRRProduct():
         gdal_ds = gdal.Open(str(file_path))
 
         # Extract necessary metadata
-        metadata = gdal_ds.GetRasterBand(1).GetMetadata()
+        band = gdal_ds.GetRasterBand(1)
+        metadata = band.GetMetadata()
+        band = None
         try:
             grib_ref_timestamp = int(
                 metadata['GRIB_REF_TIME'].lstrip().split(' ')[0])
@@ -321,10 +324,11 @@ class HRRRProduct():
                 wgs84_srs = osr.SpatialReference()
                 wgs84_srs.ImportFromEPSG(4326)
                 transform = osr.CoordinateTransformation(wgs84_srs, dst_srs)
-                (lon_min, lat_min,
-                 _), (lon_max, lat_max,
-                      _) = transform.TransformPoints([(lon_min, lat_min),
-                                                      (lon_max, lat_max)])
+                # NOTE: WGS-84 need to be in the form of lat, lon (not lon, lat) for some reason
+                (lon_min, lat_min, _), (lon_max, lat_max, _) = [
+                    transform.TransformPoint(*e)
+                    for e in ((lat_min, lon_min), (lat_max, lon_max))
+                ]
         else:
             raise ValueError('Projection must be \'world\' or \'map\'!')
         assert len(dst_srs.ExportToWkt())
@@ -339,10 +343,6 @@ class HRRRProduct():
                                 noData='nan',
                                 callback=gdal.TermProgress)
 
-        # Suppress warnings
-        h = gdal.PopErrorHandler()
-        gdal.PushErrorHandler('CPLQuietErrorHandler')
-
         # Convert to destination coordinate system
         dst_mem_path = '/vsimem/%s' % str(uuid.uuid4())
         warp_options = dict[str, Any](format='MEM',
@@ -353,11 +353,6 @@ class HRRRProduct():
         if bounds is not None:
             warp_options['outputBounds'] = [lon_min, lat_min, lon_max, lat_max]
         dst_ds = gdal.Warp(dst_mem_path, nat_ds, **warp_options)
-
-        # Unsuppress warnings
-        gdal.PopErrorHandler()
-        if h is not None:
-            gdal.PushErrorHandler(h)
 
         # Close dataset while unlinking in-RAM memory
         gdal_close_dataset(nat_ds)
@@ -386,7 +381,9 @@ class HRRRProduct():
         # product idxs
         ds = self.get_ds_for_product_idx(product_idx_list, proj, bounds)
         w, h, n_channels = ds.RasterXSize, ds.RasterYSize, ds.RasterCount
-        dt = ds.GetRasterBand(1).DataType
+        band = ds.GetRasterBand(1)
+        dt = band.DataType
+        band = None
 
         # Prepare output array
         output = np.empty((h, w, n_channels),
@@ -397,6 +394,9 @@ class HRRRProduct():
             mem_band = ds.GetRasterBand(idx + 1)
             output[:, :, idx] = mem_band.ReadAsArray()
             mem_band = None
+
+        # Close open dataset
+        gdal_close_dataset(ds)
 
         # Profit
         return output
@@ -414,16 +414,19 @@ class HRRRProduct():
         # product idxs
         in_ds = self.get_ds_for_product_idx(product_idx_list, proj, bounds)
         w, h, n_channels = in_ds.RasterXSize, in_ds.RasterYSize, in_ds.RasterCount
-        dt = in_ds.GetRasterBand(1).DataType
+        band = in_ds.GetRasterBand(1)
+        dt = band.DataType
+        band = None
 
         # Save GeoTIFF raster data
         driver = gdal.GetDriverByName('GTiff')
         out_ds = driver.Create(str(output_path), w, h, n_channels, dt)
         for band_idx in range(out_ds.RasterCount):
             mem_band = out_ds.GetRasterBand(1 + band_idx)
-            mem_band.WriteArray(
-                in_ds.GetRasterBand(1 + band_idx).ReadAsArray())
+            in_band = in_ds.GetRasterBand(1 + band_idx)
+            mem_band.WriteArray(in_band.ReadAsArray())
             mem_band.FlushCache()
+            in_band = None
             mem_band = None
 
         # Set projection and geotransform
@@ -432,7 +435,7 @@ class HRRRProduct():
 
         # Close generated dataset and free in-RAM memory
         gdal_close_dataset(in_ds)
-        out_ds = None
+        gdal_close_dataset(out_ds)
 
     def query_for_pts(self, product_idx_list, pt_ar):
         """ Query the HRRR product raster for a set of points """
@@ -459,9 +462,11 @@ class HRRRProduct():
         valid_x, valid_y = x[v], y[v]
 
         # Prepare output list
+        tmp_band = ds.GetRasterBand(1)
+        dt = tmp_band.DataType
+        tmp_band = None
         output = np.zeros((pt_ar.shape[0], ds.RasterCount),
-                          dtype=GDAL_TO_NUMPY_MAP.get(
-                              ds.GetRasterBand(1).DataType, np.float32))
+                          dtype=GDAL_TO_NUMPY_MAP.get(dt, np.float32))
         for idx in range(ds.RasterCount):
             mem_band = ds.GetRasterBand(idx + 1)
             output[v, idx] = mem_band.ReadAsArray()[valid_y, valid_x]
@@ -508,9 +513,11 @@ class HRRRProduct():
         valid_x, valid_y = x[v], y[v]
 
         # Prepare output list
+        tmp_band = ds.GetRasterBand(1)
+        dt = tmp_band.DataType
+        tmp_band = None
         output = np.zeros((pt_ar.shape[0], ds.RasterCount),
-                          dtype=GDAL_TO_NUMPY_MAP.get(
-                              ds.GetRasterBand(1).DataType, np.float32))
+                          dtype=GDAL_TO_NUMPY_MAP.get(dt, np.float32))
         for idx in range(ds.RasterCount):
             mem_band = ds.GetRasterBand(idx + 1)
             output[v, idx] = mem_band.ReadAsArray()[valid_y, valid_x]

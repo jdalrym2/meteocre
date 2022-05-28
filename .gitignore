@@ -5,3 +5,4 @@
 *\.log*
 .style.yapf
 *.egg-info/
+*.code-workspace

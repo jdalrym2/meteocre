@@ -6,17 +6,19 @@ from __future__ import annotations
 
 import uuid
 import pathlib
-from functools import lru_cache
 from datetime import datetime
 from typing import Union, Tuple, Optional, Any
+import numpy as np
 
 import pytz
 from osgeo import gdal, osr
 import matplotlib as mpl
+import matplotlib.image
 import matplotlib.pyplot as plt
 
 from . import get_logger
 from .colormaps import mrms_mesh_cmap, mrms_rotation_cmap, mrms_refl_cmap, mrms_shi_cmap
+from ..utils import gdal_close_dataset
 
 
 class MRMSProduct:
@@ -56,7 +58,6 @@ class MRMSProduct:
     def gdal_ds(self):
         return self._gdal_ds
 
-    @lru_cache(maxsize=1)
     def get_grib_metadata(self) -> dict:
         """
         Returns the metadata dictionary for this GRIB2 file
@@ -64,9 +65,11 @@ class MRMSProduct:
         Returns:
             dict: GRIB2 metadata dict
         """
-        return self.gdal_ds.GetRasterBand(1).GetMetadata()
+        band = self.gdal_ds.GetRasterBand(1)
+        meta = band.GetMetadata()
+        band = None
+        return meta
 
-    @lru_cache(maxsize=1)
     def reproject_to_geotiff(
             self,
             proj: str = 'world',
@@ -120,17 +123,14 @@ class MRMSProduct:
                 wgs84_srs = osr.SpatialReference()
                 wgs84_srs.ImportFromEPSG(4326)
                 transform = osr.CoordinateTransformation(wgs84_srs, dst_srs)
-                (lon_min, lat_min,
-                 _), (lon_max, lat_max,
-                      _) = transform.TransformPoints([(lon_min, lat_min),
-                                                      (lon_max, lat_max)])
+                # NOTE: WGS-84 need to be in the form of lat, lon (not lon, lat) for some reason
+                (lon_min, lat_min, _), (lon_max, lat_max, _) = [
+                    transform.TransformPoint(*e)
+                    for e in ((lat_min, lon_min), (lat_max, lon_max))
+                ]
         else:
             raise ValueError('Projection must be \'world\' or \'map\'!')
         assert len(dst_srs.ExportToWkt())
-
-        # Suppress warnings
-        h = gdal.PopErrorHandler()
-        gdal.PushErrorHandler('CPLQuietErrorHandler')
 
         # Set reprojection options
         dst_ds_path = str(
@@ -152,18 +152,21 @@ class MRMSProduct:
             warp_options['cropToCutline'] = True
 
         self._logger.info('Reprojecting dataset...')
-        try:
-            gdal.SetConfigOption('GDALWARP_IGNORE_BAD_CUTLINE', 'YES')
-            dst_ds = gdal.Warp(dst_ds_path, self.gdal_ds, **warp_options)
-        finally:
-            gdal.SetConfigOption('GDALWARP_IGNORE_BAD_CUTLINE', None)
-
-        # Unsuppress warnings
-        gdal.PopErrorHandler()
-        if h is not None:
-            gdal.PushErrorHandler(h)
+        dst_ds = gdal.Warp(dst_ds_path, self.gdal_ds, **warp_options)
 
         return dst_ds
+
+    def get_default_colormap(self):
+        """
+        Get default matplotlib colormap and norm objects for this MRMS product.
+
+        Meant to be overridden by subclasses.
+
+        Raises:
+            NotImplementedError: This method must be overridden by child classes
+        """
+        raise NotImplementedError(
+            'This method must be overridden by child classes!')
 
     def plot(self, cmap: Any, norm: Any, **reproj_kwargs) -> Tuple[Any, Any]:
         """
@@ -178,7 +181,8 @@ class MRMSProduct:
         """
         ds = self.reproject_to_geotiff(**reproj_kwargs)
         metadata = self.get_grib_metadata()
-        im = ds.GetRasterBand(1).ReadAsArray()
+        band = ds.GetRasterBand(1)
+        im = band.ReadAsArray()
         fig, ax = plt.subplots()
         ax.imshow(im, cmap=cmap, norm=norm)
         fig.colorbar(
@@ -188,16 +192,58 @@ class MRMSProduct:
         ax.set_title(
             f"{metadata.get('GRIB_COMMENT', 'Unknown Product')}\nValid Time: {self.valid_time.isoformat()}"
         )
+        band = None
+        gdal_close_dataset(ds)
         return fig, ax
 
-    def plot_default(self, **reproj_kwargs):
+    def plot_default(self, **reproj_kwargs) -> Tuple[Any, Any]:
         """
         Create a plot using this product's default colormap. Not implemented for this base class.
 
-        Raises:
-            NotImplementedError: Not implemented for this base class.
+        Returns:
+            Tuple[Any, Any]: Matplotlib figure and axis object
         """
-        raise NotImplementedError()
+        cmap, norm = self.get_default_colormap()
+        return self.plot(cmap, norm, **reproj_kwargs)
+
+    def to_png_raster(self, cmap: Any, norm: Any,
+                      save_path: Optional[Union[pathlib.Path, str]],
+                      **reproj_kwargs) -> np.ndarray:
+        """
+        Save raster to 8-bit RGBA PNG file.
+
+        Args:
+            cmap (Any): Colormap (given by colormaps module)
+            norm (Any): Matplotlib norm (given by colormaps module)
+            save_path (Optional[Union[pathlib.Path, str]]): Optional PNG file save path.
+
+        Returns:
+            np.ndarray: 4-channel RGBA numpy array of raster.
+        """
+        ds = self.reproject_to_geotiff(**reproj_kwargs)
+        band = ds.GetRasterBand(1)
+        im = band.ReadAsArray()
+        rgb_im = cmap(norm(im))
+        if save_path is not None:
+            matplotlib.image.imsave(str(save_path), rgb_im)
+        band = None
+        gdal_close_dataset(ds)
+        return rgb_im
+
+    def to_png_raster_default(self, save_path: Optional[Union[pathlib.Path,
+                                                              str]],
+                              **reproj_kwargs) -> np.ndarray:
+        """
+        Save raster to 8-bit RGBA PNG file using default colormap.
+
+        Args:
+            save_path (Optional[Union[pathlib.Path, str]]): Optional PNG file save path.
+
+        Returns:
+            np.ndarray: 4-channel RGBA numpy array of raster.
+        """
+        cmap, norm = self.get_default_colormap()
+        return self.to_png_raster(cmap, norm, save_path, **reproj_kwargs)
 
     @classmethod
     def from_grib2(cls, grib2_path: Union[pathlib.Path, str]) -> MRMSProduct:
@@ -231,14 +277,18 @@ class MRMSProduct:
                              str(grib2_path))
 
         # Get GDAL Dataset
-        print(('/vsigzip/' if is_gz else '') + str(grib2_path))
         ds = gdal.Open(('/vsigzip/' if is_gz else '') + str(grib2_path))
+        if ds is None:
+            raise RuntimeError('Dataset invalid! Cannot load MRMS product.')
 
         # Get Unix timestamp
-        ts = ds.GetRasterBand(1).GetMetadata().get('GRIB_VALID_TIME')
+        band = ds.GetRasterBand(1)
+        ts: Optional[str] = band.GetMetadata().get('GRIB_VALID_TIME')
+        band = None
         if ts is None:
             raise ValueError('Could not get timestamp from GRIB2 file!')
-        ts_dt = datetime.fromtimestamp(int(ts)).astimezone(pytz.UTC)
+        ts_dt = datetime.fromtimestamp(int(
+            ts.strip().split(' ')[0])).astimezone(pytz.UTC)
 
         return cls(loc=grib2_path, valid_time=ts_dt, gdal_ds=ds)
 
@@ -246,54 +296,38 @@ class MRMSProduct:
 class MRMSRotationProduct(MRMSProduct):
     """ Subclass for MRMS Rotation Products """
 
-    def plot_default(self, **reproj_kwargs) -> Tuple[Any, Any]:
+    def get_default_colormap(self):
         """
-        Create a plot using this product's default colormap.
-
-        Returns:
-            Tuple[Any, Any]: Matplotlib figure and axis object
+        Get default matplotlib colormap and norm objects for this MRMS product.
         """
-        cmap, norm = mrms_rotation_cmap()
-        return self.plot(cmap, norm, **reproj_kwargs)
+        return mrms_rotation_cmap()
 
 
 class MRMSReflectivityProduct(MRMSProduct):
     """ Subclass for MRMS Reflectivity Products """
 
-    def plot_default(self, **reproj_kwargs) -> Tuple[Any, Any]:
+    def get_default_colormap(self):
         """
-        Create a plot using this product's default colormap.
-
-        Returns:
-            Tuple[Any, Any]: Matplotlib figure and axis object
+        Get default matplotlib colormap and norm objects for this MRMS product.
         """
-        cmap, norm = mrms_refl_cmap()
-        return self.plot(cmap, norm, **reproj_kwargs)
+        return mrms_refl_cmap()
 
 
 class MRMSSevereHailIndexProduct(MRMSProduct):
     """ Subclass for MRMS Severe Hail Index (SHI) Products """
 
-    def plot_default(self, **reproj_kwargs) -> Tuple[Any, Any]:
+    def get_default_colormap(self):
         """
-        Create a plot using this product's default colormap.
-
-        Returns:
-            Tuple[Any, Any]: Matplotlib figure and axis object
+        Get default matplotlib colormap and norm objects for this MRMS product.
         """
-        cmap, norm = mrms_shi_cmap()
-        return self.plot(cmap, norm, **reproj_kwargs)
+        return mrms_shi_cmap()
 
 
 class MRMSMaximumExpectedSizeOfHailProduct(MRMSProduct):
     """ Subclass for MRMS Maximum Expected Size of Hail (MESH) Products """
 
-    def plot_default(self, **reproj_kwargs) -> Tuple[Any, Any]:
+    def get_default_colormap(self):
         """
-        Create a plot using this product's default colormap.
-
-        Returns:
-            Tuple[Any, Any]: Matplotlib figure and axis object
+        Get default matplotlib colormap and norm objects for this MRMS product.
         """
-        cmap, norm = mrms_mesh_cmap()
-        return self.plot(cmap, norm, **reproj_kwargs)
+        return mrms_mesh_cmap()

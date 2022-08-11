@@ -3,7 +3,7 @@
 """ Class to allow quick access of HRRR GRIB products """
 
 from __future__ import annotations
-from typing import Union
+from typing import List, Union
 
 # Type hint HRRRProduct w/o circular dependency
 # See: https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
@@ -50,8 +50,22 @@ class HRRRInventory():
             param_dict['desc'] = band.GetMetadata()['GRIB_COMMENT']
             self._inventory[i] = param_dict
 
-    def get_product_by_index(self, idxs) -> Union[list, dict]:
-        """ Get product by index """
+    def get_product_by_index(self,
+                             idxs: Union[int, List[int]]) -> Union[list, dict]:
+        """
+        Get HRRR product metadata by inventory index
+
+        Args:
+            idxs (Union[int, List[int]]): Integer or list of integers that correspond to
+                inventory indices.
+
+        Raises:
+            ValueError: If not product exists for a given index.
+
+        Returns:
+            Union[list, dict]: Metadata dict if input is an integer. List of metadata
+                dicts if input is a list.
+        """
         if not isinstance(idxs, (list, tuple, set)):
             idxs = [idxs]
 
@@ -70,8 +84,21 @@ class HRRRInventory():
         else:
             return product_list[0]
 
-    def get_product_by_param(self, params, levels=[]) -> Union[list, dict]:
-        """ Get product by param code """
+    def get_product_by_param(self,
+                             params: Union[str, List[str]],
+                             levels: List[str] = []) -> Union[list, dict]:
+        """
+        Get HRRR product metadata by parameter str.
+
+        Args:
+            params (Union[str, List[str]]): Parameter code or list of parameter codes.
+            levels (List[str], optional): Levels to apply search too. Leave empty
+                to search all levels. Defaults to [].
+
+        Returns:
+            Union[list, dict]: Metadata dict if input is a str. List of metadata
+                dicts if input is a list.
+        """
         if not isinstance(params, (list, tuple, set)):
             params = [params]
 

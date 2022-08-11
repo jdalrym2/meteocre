@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+""" FetchHRRR submodule top-level code """
 
 import pathlib
 from datetime import datetime
@@ -34,10 +35,12 @@ HRRR_VERSION_JSON_MAP = {
 
 
 def get_logger():
+    """ Get logger for module """
     return _get_logger()
 
 
 def get_download_dir():
+    """ Get download directory for module """
     d = pathlib.Path(_get_download_dir(), 'fetchhrrr')
     d.mkdir(parents=False, exist_ok=True)
     return d

@@ -9,7 +9,19 @@ from . import HRRR_V1_INIT_TIME, HRRR_V2_INIT_TIME, HRRR_V3_INIT_TIME, HRRR_V4_I
 
 
 def get_hrrr_version(run_time: datetime) -> int:
-    """ Get the HRRR version corresponding to the run time """
+    """
+    Get the HRRR version corresponding to the run time.
+
+    Args:
+        run_time (datetime): HRRR runtime. Assumes UTC if not
+            timezone aware.
+
+    Raises:
+        ValueError: If HRRR product version could not be determined.
+
+    Returns:
+        int: HRRR product version. 1 -> 4
+    """
     # Add UTC timezone if not specified
     if run_time.tzinfo is None:
         run_time = run_time.replace(tzinfo=pytz.UTC)
@@ -28,7 +40,15 @@ def get_hrrr_version(run_time: datetime) -> int:
 
 
 def validate_product_id(product_id: str) -> None:
-    """ Validate the product id is a valid one for HRRR, otherwise raise an expection """
+    """
+    Validate the product ID is a valid one for HRRR, otherwise raise an expection.
+
+    Args:
+        product_id (str): Product ID to validate.
+
+    Raises:
+        ValueError: If product ID is invalid.
+    """
     if not re.match('(prs|nat|sfc|subh)', product_id):
         raise ValueError(
             'Invalid product ID: %s! Must be one of \'prs\', \'nat\', \'sfc\', \'subh\'.'

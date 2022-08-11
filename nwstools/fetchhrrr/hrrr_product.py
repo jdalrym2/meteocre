@@ -71,46 +71,125 @@ class HRRRProduct():
 
     @property
     def loc(self) -> Union[str, pathlib.Path]:
+        """
+        Location of product: could be filesystem, HTTP, FTP, etc
+
+        Returns:
+            Union[str, pathlib.Path]: Location of product. Path object
+                if the product is in the filesystem.
+        """
         return self._loc
 
     @property
     def run_time(self) -> datetime:
+        """
+        Time of this product's HRRR run.
+
+        Returns:
+            datetime: (datetime aware) HRRR run time
+        """
         return self._run_time
 
     @property
     def forecast_hour(self) -> int:
+        """
+        HRRR product forecast hour. This is the number of hours ahead
+        of the run time the product is valid for.
+
+        Returns:
+            int: Forecast hour
+        """
         return self._forecast_hour
 
     @property
     def forecast_time(self) -> datetime:
+        """
+        HRRR product forecast time (also called "valid time").
+        This is the time the HRRR product is valid for.
+
+        The HRRR run time + forecast hour = forecast time.
+
+        Returns:
+            datetime: (datetime aware) HRRR forecast / valid time
+        """
         return self.run_time + timedelta(hours=self.forecast_hour)
 
     @property
     def product_id(self) -> str:
+        """
+        This HRRR product's product ID.
+
+        prs: 3D Pressure Levels,
+        nat: Native Levels,
+        sfc: 2D Surface Levels,
+        subh: 2D Surface Levels - Sub Hourly
+
+        Returns:
+            str: Product ID
+        """
         return self._product_id
 
     @property
     def product_name(self) -> str:
+        """
+        This HRRR product's product name.
+
+         - 3D Pressure Levels
+         - Native Levels
+         - 2D Surface Levels,
+         - 2D Surface Levels - Sub Hourly
+         - Unknown
+
+        Returns:
+            str: Product name
+        """
         return PRODUCT_ID_MAP.get(self.product_id, 'Unknown')
 
     @property
     def product_version(self) -> int:
+        """
+        The HRRR version of this product (1 - 4)
+
+        Returns:
+            int: HRRR version
+        """
         return self._version
 
     @property
     def gdal_ds(self) -> gdal.Dataset:
+        """
+        GDAL Dataset object for this product.
+
+        Returns:
+            gdal.Dataset: GDAL Dataset
+        """
         if self._gdal_ds is None:
             self.fetch()
-        return self._gdal_ds
+        return self._gdal_ds     # type: ignore
 
     @property
     def inventory(self) -> HRRRInventory:
+        """
+        Inventory helper object for this product.
+
+        Returns:
+            HRRRInventory: Inventory helper object.
+        """
         if self._inventory is None:
             self._inventory = HRRRInventory(self)
         return self._inventory
 
     def fetch(self) -> None:
-        """ Fetch the HRRR product from its source."""
+        """
+        Fetch the HRRR product from its source.
+        This takes it from a network location and transfers it to the filesystem.
+        And the reset's the product's location to the new location of the product
+        within the filesystem.
+
+        Raises:
+            FileNotFoundError: If for some reason the the retrieved file isn't found
+                on the filesystem.
+        """
         # The ultimate goal of this method is to populate the GDAL dataset from source
         if is_url(str(self.loc)):
             self._logger.info('Downloading HRRR product from URL: %s' %
@@ -142,6 +221,21 @@ class HRRRProduct():
     @classmethod
     def from_archive(cls, run_time: datetime, forecast_hour: int,
                      product_id: str) -> HRRRProduct:
+        """
+        Fetch this HRRR product for a given time from either the
+        Google Cloud or AWS network archive depending on availability.
+
+        Args:
+            run_time (datetime): Run time for the product, make timezone aware unless
+                it is already in UTC.
+            forecast_hour (int): Forecast hour (valid time - run time) for the product.
+                0 = analysis.
+            product_id (str): Product ID. Either 'sfc', 'prs', 'nat', or 'subh'.
+
+        Returns:
+            HRRRProduct: HRRR Product object for this file. Will not be downloaded unless
+                data from the GRIB2 product is requested.
+        """
         validate_product_id(product_id)
         loc = cls.build_archive_url(run_time, forecast_hour, product_id)
         return cls(loc, run_time, forecast_hour, product_id)
@@ -225,7 +319,27 @@ class HRRRProduct():
     @staticmethod
     def build_archive_url(run_time: datetime, forecast_hour: int,
                           product_id: str) -> str:
-        """ Build a HRRR archive URL from the runtime, forecast hour, and product ID """
+        """
+        Build a HRRR archive URL from the runtime, forecast hour, and product ID.
+
+        Searches between the Google Cloud archive and the AWS archive, finding the
+        first available product.
+
+        Args:
+            run_time (datetime): Run time for the product, make timezone aware unless
+                it is already in UTC.
+            forecast_hour (int): Forecast hour (valid time - run time) for the product.
+                0 = analysis.
+            product_id (str): Product ID. Either 'sfc', 'prs', 'nat', or 'subh'.
+
+        Raises:
+            NotImplementedError: Subhourly products are not yet supported due to their different
+                naming convention.
+            ValueError: If a HRRR product could not be found for that time.
+
+        Returns:
+            str: URL for a HRRR product that (should be) fetchable.
+        """
 
         # TODO: this might not work for the subh products atm
         if product_id == 'subh':
@@ -267,22 +381,20 @@ class HRRRProduct():
         proj: str = 'world',
         bounds: Optional[Tuple[float, float, float, float]] = None
     ) -> gdal.Dataset:
-        """ Return GDAL dataset for a specific set of product indices
+        """
+        Return GDAL dataset for a specific set of product indices
             - proj = 'map' -> EPSG:3857
             - proj = 'world' -> EPSG:4326
 
             - bounds = None
             - bounds = [lon_min, lat_min, lon_max, lat_max]
-        """
-        """
+
         How to get the HRRR PROJ4 string
 
         HRRR Domain Params are at: https://rapidrefresh.noaa.gov/hrrr/HRRR_conus.domain.txt
 
-        Then execute the following:
-
-            pip install wrf-python
-
+        Then execute the following: `pip install wrf-python`
+        ```python
         >>> import wrf
         >>> params = dict(
                 TRUELAT1=38.5,
@@ -293,9 +405,25 @@ class HRRRProduct():
                 POLE_LON=0
         )
         >>> wrf.LambertConformal(**params).proj4()
-
         '+proj=lcc +units=m +a=6370000.0 +b=6370000.0 +lat_1=38.5 +lat_2=38.5
         +lat_0=38.5 +lon_0=-97.5 +nadgrids=@null'
+        ```
+
+        Args:
+            product_idx_list (list[int]): List of product indices to fetch. Reference
+                the HRRRInventory helper class if unsure what to put here.
+            proj (str, optional): Map projection.
+                - proj = 'map' -> EPSG:3857
+                - proj = 'world' -> EPSG:4326
+                Defaults to 'world'.
+            bounds (Optional[Tuple[float, float, float, float]], optional): Bounds in [lon_min, lat_min, lon_max, lat_max].
+                Set to None to request for all of CONUS. Defaults to None.
+
+        Raises:
+            ValueError: If input projection is invalid.
+
+        Returns:
+            gdal.Dataset: GDAL Dataset object for the requested products.
         """
 
         # Parse bounds
@@ -369,7 +497,7 @@ class HRRRProduct():
         For a set of product indices, return a numpy array of the values.
 
         Args:
-            product_idx_list (List[int]): List of product indicies. Use HRRRProduct.inventory to search if necessary.
+            product_idx_list (List[int]): List of product indices. Use HRRRProduct.inventory to search if necessary.
             proj (str, optional): Map projection to use: 'map' or 'world'. Defaults to 'world'.
             bounds (Optional[Tuple[float, float, float, float]], optional): Optional bounding box (lon_min, lat_min, lon_max, lat_max).
                 Defaults to None.
@@ -408,7 +536,16 @@ class HRRRProduct():
             proj: str = 'world',
             bounds: Optional[Tuple[float, float, float,
                                    float]] = None) -> None:
-        """ Export product as a GeoTiff """
+        """
+        Export product as a GeoTIFF.
+
+        Args:
+            output_path (Union[str, pathlib.Path]): Output GeoTIFF path.
+            product_idx_list (List[int]): List of product indices. Use HRRRProduct.inventory to search if necessary.
+            proj (str, optional): Map projection to use: 'map' or 'world'. Defaults to 'world'.
+            bounds (Optional[Tuple[float, float, float, float]], optional): Optional bounding box (lon_min, lat_min, lon_max, lat_max).
+                Defaults to None.
+        """
 
         # Load a GDAL dataset in the correct projection and with the desired
         # product idxs
@@ -437,8 +574,19 @@ class HRRRProduct():
         gdal_close_dataset(in_ds)
         gdal_close_dataset(out_ds)
 
-    def query_for_pts(self, product_idx_list, pt_ar):
-        """ Query the HRRR product raster for a set of points """
+    def query_for_pts(
+            self, product_idx_list: List[int],
+            pt_ar: Union[List[Tuple[float, float]], np.ndarray]) -> np.ndarray:
+        """
+        Sample the HRRR product at a set of geospatial points.
+
+        Args:
+            product_idx_list (List[int]): List of product indices. Use HRRRProduct.inventory to search if necessary.
+            pt_ar (Union[List[Tuple[float, float]], np.ndarray]): Set of points to sample: [(lat1, lon1), (lat2, lon2), ...]
+
+        Returns:
+            np.ndarray: Output samples for each point [N x M]; N -> number of points. M -> number of products sampled.
+        """
         # Get bounds based on pt array
         pt_ar = np.array(pt_ar)
         lat_max, lat_min = np.max(pt_ar[:, 0]) + 0.1, np.min(pt_ar[:, 0]) - 0.1
@@ -478,8 +626,21 @@ class HRRRProduct():
         # Return
         return output
 
-    def query_for_radius(self, product_idx_list, lat, lon, radius_km):
-        """ Query the HRRR product raster for a set of points """
+    def query_for_radius(self, product_idx_list: List[int], lat: float,
+                         lon: float, radius_km: float) -> np.ndarray:
+        """
+        Sample the HRRR product raster for a set of points
+
+        Args:
+            product_idx_list (List[int]): List of product indices. Use HRRRProduct.inventory to search if necessary.
+            lat (float): Circle center latitude.
+            lon (float): Circle center longitude.
+            radius_km (float): Approximate circle center.
+
+        Returns:
+            np.ndarray: Array of sampled points for each raster pixel that falls within this radius. Can use
+                mean / max / min / etc. for aggregate statistics.
+        """
         # Get bounds based on pt array
         bounds = get_extreme_points(lat, lon, radius_km)
 

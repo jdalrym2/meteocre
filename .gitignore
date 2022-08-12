@@ -1,5 +1,6 @@
 .vscode
 *\.pyc
+__pycache__
 /data
 /build
 *\.log*

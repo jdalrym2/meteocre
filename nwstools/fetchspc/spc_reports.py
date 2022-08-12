@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+""" Set of classes to parse SPC storm reports from https://www.spc.noaa.gov/climo/online/"""
+
+from __future__ import annotations
 
 import io
 import abc
 import csv
+from typing import Any, List, TypeVar
 import requests
 from datetime import datetime
 
@@ -34,6 +38,10 @@ class SPCReport(abc.ABC):
 
     def __repr__(self):
         return self.__str__()
+
+
+# Declasre SPCReport class a "type" for static type-hinting
+SPCReportType = TypeVar('SPCReportType', bound=SPCReport)
 
 
 class SPCTornadoReport(SPCReport):
@@ -87,8 +95,22 @@ class SPCReportFactory():
     ]
 
     @classmethod
-    def from_csv_line(cls, date, header, line) -> SPCReport:
-        """ Return SPC report object from a CSV line """
+    def from_csv_line(cls, date: datetime, header: List[str],
+                      line: List[str]) -> SPCReport:
+        """
+        Return SPC report object from a CSV line
+
+        Args:
+            date (datetime): Date of report
+            header (List[str]): CSV header
+            line (List[str]): CSV line data
+
+        Raises:
+            ValueError: If the CSV header is unrecognized.
+
+        Returns:
+            SPCReport: SPC report fo CSV line
+        """
         assert len(header) == len(line)
         if header == cls.TORNADO_HEADER:
             return SPCTornadoReport(date, *line)
@@ -101,40 +123,82 @@ class SPCReportFactory():
 
 
 class SPCReportsProduct():
-    """ Class to hold a set of SPC reports """
+    """ Class to hold a collection of SPC reports """
 
     __slots__ = ['_reports']
 
-    def __init__(self, reports):
+    def __init__(self, reports: List[SPCReportType]):
         self.reports = reports
 
     @property
-    def reports(self):
+    def reports(self) -> List[Any]:
+        """
+        Get the reports of this collection
+
+        Returns:
+            List[Any]: SPC reports in this collection.
+        """
         return self._reports
 
     @reports.setter
-    def reports(self, v):
+    def reports(self, v: List[Any]):
+        """
+        Set the reports of this collection
+
+        Args:
+            v (List[Any]): List of reports. Filtered to be subclass of
+                SPCReport before entering class.
+        """
+        # Sanity check that all inputs are storm reports
         self._reports = [e for e in v if issubclass(e.__class__, SPCReport)]
 
     @property
-    def tornado_reports(self):
+    def tornado_reports(self) -> List[SPCTornadoReport]:
+        """
+        Get the tornado reports in this collection
+
+        Returns:
+            List[SPCTornadoReport]: List of tornado reports
+        """
         return [e for e in self.reports if e.__class__ == SPCTornadoReport]
 
     @property
-    def wind_reports(self):
+    def wind_reports(self) -> List[SPCWindReport]:
+        """
+        Get the wind reports in this collection
+
+        Returns:
+            List[SPCWindReport]: List of wind reports
+        """
         return [e for e in self.reports if e.__class__ == SPCWindReport]
 
     @property
-    def hail_reports(self):
+    def hail_reports(self) -> List[SPCHailReport]:
+        """
+        Get the hail reports in this collection
+
+        Returns:
+            List[SPCHailReport]: List of hail reports
+        """
         return [e for e in self.reports if e.__class__ == SPCHailReport]
 
     def __len__(self):
         return len(self.reports)
 
     @classmethod
-    def fetch_for_date(cls, fetch_date: datetime):
-        """ Fetch a set of SPC reports for a given date """
+    def fetch_for_date(cls, fetch_date: datetime) -> SPCReportsProduct:
+        """
+        Fetch the SPC reports for a given date.
 
+        Args:
+            fetch_date (datetime): Fetch date.
+
+        Raises:
+            RuntimeError: If the downloaded CSV header was not valid.
+
+        Returns:
+            SPCReportsProduct: Collection of SPC reports for the date
+        """
         reports = []
 
         # Build fetch URL for the date
@@ -157,7 +221,10 @@ class SPCReportsProduct():
                     if line[0] == 'Time':
                         header = line
                     else:
-                        # Generate the corresponding report and append it to the lsit
+                        # Sanity check that a header has occurred by now
+                        if header is None:
+                            raise RuntimeError('CSV header was not detected!')
+                        # Generate the corresponding report and append it to the list
                         report = SPCReportFactory.from_csv_line(
                             fetch_date, header, line)
                         reports.append(report)
@@ -167,13 +234,14 @@ class SPCReportsProduct():
 
     @staticmethod
     def build_url_for_date(d: datetime) -> str:
+        """
+        Build the fetch URL to get filtered reports for a given date.
+
+        Args:
+            d (datetime): Date to fetch reports
+
+        Returns:
+            str: URL to report CSV
+        """
         return 'https://www.spc.noaa.gov/climo/reports/%s_rpts_filtered.csv' % d.strftime(
             r'%y%m%d')
-
-
-if __name__ == '__main__':
-
-    storm_reports = SPCReportsProduct.fetch_for_date(datetime(2019, 5, 17))
-
-    import pdb
-    pdb.set_trace()

@@ -12,11 +12,31 @@ from tqdm import tqdm
 
 
 def is_url(url: str) -> bool:
+    """
+    Checks if a string is a URL by verifying its scheme,
+    either http or https
+
+    Args:
+        url (str): Possible URL string to test
+
+    Returns:
+        bool: True if string describes a URL.
+    """
     return urllib.parse.urlparse(url).scheme in ('http', 'https')
 
 
 def url_exists(url: str) -> bool:
-    """ Return if a URL exists and can be downloaded """
+    """
+    Returns true if a URL exists and can be downloaded.
+    It checks to ensure that the status code is 200 and
+    the 'content-length' is given in the response headers.
+
+    Args:
+        url (str): URL string to test.
+
+    Returns:
+        bool: True if URL can be downloaded.
+    """
     response = requests.head(url)
     if response.status_code == 200:
         return 'content-length' in response.headers
@@ -27,7 +47,25 @@ def url_exists(url: str) -> bool:
 def fetch_from_url(url: str,
                    output_path: Union[str, pathlib.Path],
                    exist_ok: bool = False) -> pathlib.Path:
-    """ Fetch a file from a URL """
+    """
+    Download a file from a URL.
+
+    Args:
+        url (str): URL string to download.
+        output_path (Union[str, pathlib.Path]): Path to save file or directory.
+            Specifying a file name is optional.
+        exist_ok (bool, optional): Whether or not overwriting an existing
+            file is okay. Defaults to False.
+
+    Raises:
+        ValueError: If the input string is not a URL.
+        FileExistsError: If exist_ok=False, raised if the output file
+            already exist.
+
+    Returns:
+        pathlib.Path: Path to output file (useful if given output_path is a
+            directory).
+    """
 
     # Parse the incoming URL
     parse_result = urllib.parse.urlparse(url)
@@ -80,7 +118,19 @@ def map_to_pix(xform: list[float],
                x_m: Union[float, list[float], np.ndarray],
                y_m: Union[float, list[float], np.ndarray],
                round: bool = True) -> tuple[np.ndarray, np.ndarray]:
-    """ Convert x/y in map projection (WGS84: lon/lat) to pixel x, y coordinates """
+    """
+    Convert x/y in map projection (WGS84: lon/lat) to pixel x, y coordinates
+
+    Args:
+        xform (list[float]): Geotransform to use.
+        x_m (Union[float, list[float], np.ndarray]): Map x-coordinates in WGS84 (i.e. longitude)
+        y_m (Union[float, list[float], np.ndarray]): Map y-coordinates in WGS84 (i.e. latitude)
+        round (bool, optional): Whether or not to round the result and return integers.
+            Defaults to True.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Output x, y arrays in pixel coordinates.
+    """
 
     # Input validation, either both float or both lists
     assert not (isinstance(x_m, float) ^ isinstance(y_m, float))
@@ -109,7 +159,17 @@ def pix_to_map(
     xform: list[float], x_p: Union[float, list[float], np.ndarray],
     y_p: Union[float, list[float],
                np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
-    """ Convert pixel x, y coordinates to x/y in map projection (WGS84: lon/lat) """
+    """
+    Convert pixel x, y coordinates to x/y in map projection (WGS84: lon/lat)
+
+    Args:
+        xform (list[float]): Geotransform to use.
+        x_p (Union[float, list[float], np.ndarray]): Pixel x-coordinates
+        y_p (Union[float, list[float], np.ndarray]): Pixel y-coordinates
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Output x, y arrays in map coordinates (WGS84: lon, lat).
+    """
     # Input validation, either both float or both lists
     assert not (isinstance(x_p, float) ^ isinstance(y_p, float))
     if isinstance(x_p, float):
@@ -130,7 +190,17 @@ def pix_to_map(
 
 def get_extreme_points(lat: float, lon: float,
                        radius_km: float) -> tuple[float, float, float, float]:
-    """ Given a lat, lon pair, find bounds that enclose a given radius """
+    """
+    Given a (lat, lon) pair, find bounds that enclose a given radius
+
+    Args:
+        lat (float): Latitude in WGS84 degrees
+        lon (float): Longitude in WGS84 degrees
+        radius_km (float): Radius in km
+
+    Returns:
+        tuple[float, float, float, float]: _description_
+    """
     R = 6367     # radius of Earth, km
     lat_dist = np.degrees(radius_km / R)
     lon_dist = lat_dist / np.cos(np.radians(lat))
@@ -141,7 +211,17 @@ def get_extreme_points(lat: float, lon: float,
 
 def get_px_in_ellipse(center: tuple[int, int], a: float,
                       b: float) -> np.ndarray:
-    """ Get the set of pixels that fall within ellipse defined with a, b """
+    """
+    Get the set of pixels that fall within ellipse defined with a, b
+
+    Args:
+        center (tuple[int, int]): Center (x, y) pair [px]
+        a (float): Major and/or minor ax [px]
+        b (float): Major and/or minor ax [px]
+
+    Returns:
+        np.ndarray: Set of pixels that fall within the defined ellipse.
+    """
 
     # Start by getting array as if centered at (0, 0)
     ax_m = max(a, b)

@@ -16,7 +16,7 @@ stp = hrrr_get_significant_tornado_parameter(product)
 
 # Plot the result
 fig, ax = plt.subplots(1, 2, sharex=True, sharey=True)
-ax[0].imshow(scp)
-ax[1].imshow(stp)
+ax[0].imshow(scp)  # type: ignore
+ax[1].imshow(stp)  # type: ignore
 
 plt.show()

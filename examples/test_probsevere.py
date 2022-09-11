@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from nwstools.fetchmrms.probsevere import ProbSevereProductCollection
-from nwstools.fetchmrms.probsevere.plots import panel_plot_for_track
+from meteocre.fetchmrms.probsevere import ProbSevereProductCollection
+from meteocre.fetchmrms.probsevere.plots import panel_plot_for_track
 
-path = '/home/jon/git/nwstools/data/MRMS/2022043001/ProbSevere/'
+path = '/home/jon/git/meteocre/data/MRMS/2022043001/ProbSevere/'
 
 # ds = gdal.OpenEx(path, open_options=['NATIVE_DATA=YES'])
 # l = ds.GetLayer(0)

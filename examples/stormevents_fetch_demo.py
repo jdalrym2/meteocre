@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from nwstools.stormevents import fetch_from_storm_events_archive
+from meteocre.stormevents import fetch_from_storm_events_archive
 
 if __name__ == '__main__':
 

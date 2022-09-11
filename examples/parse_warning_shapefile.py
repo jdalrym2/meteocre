@@ -3,10 +3,10 @@
 
 from osgeo import ogr
 
-from nwstools.fetchwwa import WWAPolygon
+from meteocre.fetchwwa import WWAPolygon
 
 if __name__ == '__main__':
-    warning_path = '/home/jon/git/nwstools/data/2021_tsmf/wwa_202101010000_202112312359.shp'
+    warning_path = '/home/jon/git/meteocre/data/2021_tsmf/wwa_202101010000_202112312359.shp'
 
     ds = ogr.Open(warning_path)
     layer = ds.GetLayer(0)

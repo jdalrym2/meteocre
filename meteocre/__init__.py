@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 from osgeo import gdal
 
-NWSTOOLS_CONFIG_LOC = pathlib.Path(pathlib.Path.home(), '.nwstools')
+meteocre_CONFIG_LOC = pathlib.Path(pathlib.Path.home(), '.meteocre')
 
 # Module state variables
 _cur_download_dir = None
@@ -17,7 +17,7 @@ _cur_download_dir = None
 # Configure logger
 _logger = logging.getLogger(__name__)
 _logger.setLevel(
-    logging.DEBUG)  # configure log level here. TODO: add to ~/.nwstools
+    logging.DEBUG)  # configure log level here. TODO: add to ~/.meteocre
 _logger_handlers = [logging.StreamHandler(sys.stdout)]
 _logger_formatter = logging.Formatter(
     r'%(asctime)-15s %(levelname)s [%(module)s] %(message)s')
@@ -28,7 +28,7 @@ for h in _logger_handlers:
 
 
 def get_logger():
-    """ Fetch the nwstools logger """
+    """ Fetch the meteocre logger """
     return _logger
 
 
@@ -50,7 +50,7 @@ GDAL_TO_NUMPY_MAP = {
 NUMPY_TO_GDAL_MAP = dict([(v, k) for k, v in GDAL_TO_NUMPY_MAP.items()])
 
 
-# Get download directory for nwstools files
+# Get download directory for meteocre files
 def get_download_dir():
     """ Get the module-level download directory for HRRR data """
     global _cur_download_dir
@@ -62,9 +62,9 @@ def get_download_dir():
 
     # If we have a config file with the download directory, load it and return
     attempt_unlink = False
-    if NWSTOOLS_CONFIG_LOC.exists():
+    if meteocre_CONFIG_LOC.exists():
         try:
-            with open(NWSTOOLS_CONFIG_LOC) as f:
+            with open(meteocre_CONFIG_LOC) as f:
                 config = json.load(f)
             _cur_download_dir = config.get('download_dir')
             if _cur_download_dir is not None:
@@ -86,7 +86,7 @@ def get_download_dir():
     if attempt_unlink:
         _logger.info('Attempting to unlink existing config file.')
         try:
-            NWSTOOLS_CONFIG_LOC.unlink()
+            meteocre_CONFIG_LOC.unlink()
         except Exception as e:
             _logger.error(
                 'Unlink failed (exception below)! Continuing anyway.')
@@ -118,13 +118,13 @@ def get_download_dir():
     while response.lower() not in ('y', 'n'):
         response = input(
             'Save this to a config file for later? (%s) (Respond y/Y/n/N): ' %
-            str(NWSTOOLS_CONFIG_LOC))
+            str(meteocre_CONFIG_LOC))
     if response.lower() == 'y':
-        with open(NWSTOOLS_CONFIG_LOC, 'w') as f:
+        with open(meteocre_CONFIG_LOC, 'w') as f:
             json.dump(dict(download_dir=str(_cur_download_dir.resolve())),
                       f,
                       indent=2)
-        NWSTOOLS_CONFIG_LOC.chmod(0o600)
+        meteocre_CONFIG_LOC.chmod(0o600)
         _logger.info('Download directory successfully saved!')
 
     # Finally return the download directory that we entered

@@ -6,15 +6,15 @@ import matplotlib
 
 import matplotlib.pyplot as plt
 
-from nwstools.fetchmrms import MRMSRotationProduct, MRMSReflectivityProduct, MRMSSevereHailIndexProduct, MRMSMaximumExpectedSizeOfHailProduct
-from nwstools.fetchmrms.colormaps import mrms_rotation_cmap
+from meteocre.fetchmrms import MRMSRotationProduct, MRMSReflectivityProduct, MRMSSevereHailIndexProduct, MRMSMaximumExpectedSizeOfHailProduct
+from meteocre.fetchmrms.colormaps import mrms_rotation_cmap
 
 bounds = (-102.0506, 36.9927, -94.6046, 40.0087)
 grib2_path = pathlib.Path(
     '/home/jon/workspace/storm_router/case_studies/Andover_Tornado_042922/MRMS/raw/MergedBaseReflectivityQC/MRMS_MergedBaseReflectivityQC_00.50_20220430-055811.grib2.gz'
-     #'/home/jon/git/nwstools/data/MRMS/2022043001/CONUS/MergedBaseReflectivityQC/MRMS_MergedBaseReflectivityQC_00.50_20220430-013004.grib2.gz'
-     #'/home/jon/git/nwstools/data/MRMS/2022043001/CONUS/SHI/MRMS_SHI_00.50_20220430-013038.grib2.gz'
-     #'/home/jon/git/nwstools/data/MRMS/2022043001/CONUS/MESH/MRMS_MESH_00.50_20220430-013038.grib2.gz'
+     #'/home/jon/git/meteocre/data/MRMS/2022043001/CONUS/MergedBaseReflectivityQC/MRMS_MergedBaseReflectivityQC_00.50_20220430-013004.grib2.gz'
+     #'/home/jon/git/meteocre/data/MRMS/2022043001/CONUS/SHI/MRMS_SHI_00.50_20220430-013038.grib2.gz'
+     #'/home/jon/git/meteocre/data/MRMS/2022043001/CONUS/MESH/MRMS_MESH_00.50_20220430-013038.grib2.gz'
 )
 
 p = MRMSReflectivityProduct.from_grib2(grib2_path)

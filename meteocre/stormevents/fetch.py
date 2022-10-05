@@ -13,15 +13,31 @@ from . import get_logger, get_download_dir
 from . import StormEventDetailedReport, StormEventFatalityReport, StormEventLocation
 
 
-def _get_filename_for_product_type(year: int, product_type: str):
-    """ Return filename we will give for a specific set of records """
+def _get_filename_for_product_type(year: int, product_type: str) -> str:
+    """
+    Return filename we will give for a specific set of records
+
+    Args:
+        year (int): Year (ex. 2022)
+        product_type (str): Product type to generate name for
+
+    Returns:
+        str: _description_
+    """
     return 'stormevents_%s_%d.csv' % (product_type, year)
 
 
 def _ftp_download_and_extract_gzip(
         ftp: FTP, ftp_name: str, output_path: Union[str,
                                                     pathlib.Path]) -> None:
-    """ Simultaneously download and unzip a Gzip archive from an FTP target """
+    """
+    Simultaneously download and unzip a Gzip archive from an FTP target
+
+    Args:
+        ftp (FTP): FTP object
+        ftp_name (str): Filename to retrieve
+        output_path (Union[str, pathlib.Path]): Output path
+    """
     fio = BytesIO()
     ftp.retrbinary('RETR %s' % ftp_name, fio.write)
     fio.seek(0)
@@ -33,8 +49,24 @@ def fetch_from_storm_events_archive(
         query_year: int,
         products_to_load: Union[str, Sequence[str]] = 'all',
         load: bool = True) -> Optional[dict[str, list]]:
-    """ Fetch a set of products for a given year from the NCEI archive,
-        or load them up if they've already been fetched """
+    """
+    Fetch a set of products for a given year from the NCEI archive,
+        or load them up if they've already been fetched
+
+    Args:
+        query_year (int): Year to query
+        products_to_load (Union[str, Sequence[str]], optional): Products to fetch. Defaults to 'all'.
+        load (bool, optional): Whether or not to load into memory once fetched. Defaults to True.
+
+    Raises:
+        ValueError: If the product type is invalid.
+        ValueError: If no matches are found for event details.
+        ValueError: If no matches are found for event fatalities.
+        ValueError: If no matches are found for event locations.
+
+    Returns:
+        Optional[dict[str, list]]: If load is True, loaded products. Else None.
+    """
 
     # Get logger
     logger = get_logger()

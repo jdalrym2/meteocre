@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import csv
 import pathlib
-from typing import Union, Optional
-from datetime import datetime
+from typing import Union, Optional, List
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 
 from .utils import to_datetime
@@ -35,8 +36,19 @@ class StormEventDetailedReport:
     event_narrative: str
 
     @classmethod
-    def from_csv(cls, csv_file: Union[str, pathlib.Path]):
-        """ Load a set of detailed reports from a CSV file """
+    def from_csv(
+            cls,
+            csv_file: Union[str,
+                            pathlib.Path]) -> List[StormEventDetailedReport]:
+        """
+        Load a set of detailed reports from a CSV file
+
+        Args:
+            csv_file (Union[str, pathlib.Path]): CSV file to read in
+
+        Returns:
+            List[StormEventDetailedReport]: Storm event report objects from the CSV file
+        """
         cls_list = []
         with open(csv_file, 'r') as f:
             dict_reader = csv.DictReader(f)
@@ -123,9 +135,21 @@ class StormEventDetailedReport:
         raise NotImplementedError()
 
     @property
-    def duration(self):
+    def duration(self) -> timedelta:
+        """
+        Duration of the event
+
+        Returns:
+            timedelta: Duration as datetime.timedelta
+        """
         return self.end_time - self.start_time
 
     @property
-    def is_tornado_event(self):
+    def is_tornado_event(self) -> bool:
+        """
+        Whether or not this storm event is for a tornado
+
+        Returns:
+            bool: True if this event is related to a tornado
+        """
         return self.tornado is not None

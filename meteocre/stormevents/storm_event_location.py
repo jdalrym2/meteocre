@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import csv
 import pathlib
-from typing import Union
+from typing import Union, List
 from dataclasses import dataclass
 
 
@@ -20,8 +21,18 @@ class StormEventLocation:
     lon: float
 
     @classmethod
-    def from_csv(cls, csv_file: Union[str, pathlib.Path]):
-        """ Load a set of location entries from a CSV file """
+    def from_csv(
+            cls, csv_file: Union[str,
+                                 pathlib.Path]) -> List[StormEventLocation]:
+        """
+        Load a set of location entries from a CSV file
+
+        Args:
+            csv_file (Union[str, pathlib.Path]): CSV file to load in
+
+        Returns:
+            List[StormEventLocation]: List of storm event locations from the CSV file
+        """
         cls_list = []
         with open(csv_file, 'r') as f:
             dict_reader = csv.DictReader(f)

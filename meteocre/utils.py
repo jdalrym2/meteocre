@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+""" Common utility functions used by multiple meteocre modules """
+
 import sys
 import pathlib
 import requests

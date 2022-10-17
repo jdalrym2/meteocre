@@ -3,7 +3,7 @@
 """ Class to allow quick access of HRRR GRIB products """
 
 from __future__ import annotations
-from typing import List, Union
+from typing import Any, Dict, List, Union, overload
 
 # Type hint HRRRProduct w/o circular dependency
 # See: https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports
@@ -24,6 +24,7 @@ level_nice_desc = {
     '50000-100000-ISBL': '500-1000 mb',
     '0-EATM': 'entire atmosphere (considered as a single layer)',
     '0-LCY': 'low cloud layer',
+    '0.5-0.8-SIGL': '0.5-0.8 sigma layer',
     '0-1000-HTGL': '0-1000 m above ground',
     '0-6000-HTGL': '0-6000 m above ground',
     '9000-0-SPDL': '90-0 mb above ground'
@@ -50,13 +51,28 @@ class HRRRInventory():
             param_dict['desc'] = band.GetMetadata()['GRIB_COMMENT']
             self._inventory[i] = param_dict
 
+    def __str__(self) -> str:
+        return '%s<Entries: %d>' % (self.__class__.__name__,
+                                    len(self._inventory))
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    @overload
+    def get_product_by_index(self, idxs: int) -> Dict[str, Any]:
+        ...
+
+    @overload
+    def get_product_by_index(self, idxs: List[int]) -> List[Dict[str, Any]]:
+        ...
+
     def get_product_by_index(self,
                              idxs: Union[int, List[int]]) -> Union[list, dict]:
         """
         Get HRRR product metadata by inventory index
 
         Args:
-            idxs (Union[int, List[int]]): Integer or list of integers that correspond to
+            idxs (Union[int, Sequence[int]]): Integer or sequence of integers that correspond to
                 inventory indices.
 
         Raises:
@@ -86,7 +102,7 @@ class HRRRInventory():
 
     def get_product_by_param(self,
                              params: Union[str, List[str]],
-                             levels: List[str] = []) -> Union[list, dict]:
+                             levels: List[str] = []) -> List[Dict[str, Any]]:
         """
         Get HRRR product metadata by parameter str.
 
@@ -95,15 +111,16 @@ class HRRRInventory():
             levels (List[str], optional): Levels to apply search too. Leave empty
                 to search all levels. Defaults to [].
 
+        Raises:
+            ValueError: If the search returns an empty list.
+
         Returns:
-            Union[list, dict]: Metadata dict if input is a str. List of metadata
-                dicts if input is a list.
+            List[Dict[str, Any]]: List of metadata dicts that match the parameters and levels.
         """
         if not isinstance(params, (list, tuple, set)):
             params = [params]
 
-        # TODO: params aren't unique based on level!
-        # First, search for params all at once
+        # Perform the search
         param_list = []
         params_search = list(params).copy()
         for d in self._inventory.values():
@@ -111,5 +128,8 @@ class HRRRInventory():
                 if not len(levels) or d['level'] in levels:
                     param_list.append(d)
 
-        # Return results
+        # Sanity check that we found anything
+        if not len(param_list):
+            raise ValueError('Search return empty list!')
+
         return param_list

@@ -1,3 +1,71 @@
+[project]
+name = "meteocre"
+version = "0.0.1"
+description = "Tools for working with meteorlogical data so I can pretend to be a meteorologist"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+keywords = ["weather", "meteorology"]
+authors = [
+  {name = "Jon Dalrymple", email = "j_dalrym2@hotmail.com" }
+]
+maintainers = [
+  {name = "Jon Dalrymple", email = "j_dalrym2@hotmail.com" }
+]
+
+# Classifiers help users find your project by categorizing it.
+#
+# For a list of valid classifiers, see https://pypi.org/classifiers/
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+# This field lists other packages that your project depends on to run.
+# Any package you put here will be installed by pip when your project is
+# installed, so they must be valid existing projects.
+#
+# For an analysis of this field vs pip's requirements files see:
+# https://packaging.python.org/discussions/install-requires-vs-requirements/
+# TODO: double-check these + split for rsc submodules
+dependencies = [
+  "pytz",
+  "GDAL>=3,<=3.4.1",
+  "numpy",
+  "tqdm",
+  "requests",
+  "matplotlib",
+]
+
+# List additional groups of dependencies here (e.g. development
+# dependencies). Users will be able to install these using the "extras"
+# syntax, for example:
+#
+#   $ pip install sampleproject[dev]
+#
+# Similar to `dependencies` above, these must be valid existing
+# projects.
+[project.optional-dependencies]
+dev = ["pylama", "yapf", "pytest"]
+
+[project.urls]
+"Homepage" = "https://github.com/jdalrym2/meteocre"
+
+[tool.setuptools]
+packages = ["meteocre"]
+
 [build-system]
-requires = ["setuptools>=42", "wheel"]   # PEP 508 specifications.
+# These are the assumed default build requirements from pip:
+# https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support
+requires = ["setuptools>=43.0.0", "wheel"]
 build-backend = "setuptools.build_meta"

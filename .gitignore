@@ -7,3 +7,4 @@ __pycache__
 .style.yapf
 *.egg-info/
 *.code-workspace
+/venv
